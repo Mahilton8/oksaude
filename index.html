@@ -370,6 +370,13 @@
     </div>
 
     <div class="panel">
+      <h2>Reimportar cadastro padrão</h2>
+      <p style="font-size:13px;color:#666;margin-top:0;">Se os clientes não aparecerem corretamente (ex: sincronização travou no meio), use este botão para restaurar os 107 clientes da planilha original e reenviá-los ao Google Sheets.</p>
+      <button type="button" id="btnReimportarClientes" style="background:var(--vermelho);color:#fff;">🔄 Reimportar os 107 clientes agora</button>
+      <div id="statusReimportacao" style="font-size:12px;color:#666;margin-top:8px;"></div>
+    </div>
+
+    <div class="panel">
       <h2>Novo cliente</h2>
       <form id="frmCliente">
         <div>
@@ -1636,6 +1643,37 @@ document.getElementById('limparFiltroFatura').addEventListener('click', ()=>{
   filtroFaturaCliente.clear();
   document.querySelectorAll('.ffb-btn[data-ffb]').forEach(b=>b.classList.remove('ativo'));
   filtrarTabelaClientesPorEstado();
+});
+
+document.getElementById('btnReimportarClientes').addEventListener('click', async ()=>{
+  const status = document.getElementById('statusReimportacao');
+  const btn = document.getElementById('btnReimportarClientes');
+  if(!confirm('Isso vai substituir a lista atual de clientes pelos 107 da planilha original e reenviar tudo ao Google Sheets. Continuar?')) return;
+
+  btn.disabled = true;
+  status.textContent = 'Restaurando localmente...';
+
+  clientes = JSON.parse(JSON.stringify(CLIENTES_IMPORTADOS));
+  await salvarClientes();
+  try{ localStorage.setItem('clientes_importados_v2', '1'); }catch(e){}
+  renderClientes();
+
+  status.textContent = `107 clientes restaurados localmente. Enviando ao Google Sheets (isso pode levar ~1 minuto)...`;
+
+  if(webhookUrl){
+    let enviados = 0;
+    for(const c of clientes){
+      await enviarParaSheets(c, 'upsert', 'cliente');
+      enviados++;
+      status.textContent = `Enviando ao Google Sheets... ${enviados} de ${clientes.length}`;
+      await esperar(300);
+    }
+    status.textContent = `Concluído! ${enviados} clientes sincronizados com o Google Sheets.`;
+  } else {
+    status.textContent = 'Concluído! (sincronização com Sheets não está configurada)';
+  }
+
+  btn.disabled = false;
 });
 
 carregar();
