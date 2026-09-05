@@ -73,6 +73,13 @@
   .badge-status{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
   .badge-status.sim{background:#e6f6ee;color:var(--verde);}
   .badge-status.nao{background:#f0f0f0;color:#888;}
+  .checkbox-group{display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;}
+  .checkbox-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--cinza);cursor:pointer;font-weight:400;}
+  .checkbox-item input{width:16px;height:16px;accent-color:var(--amarelo-esc);cursor:pointer;}
+  .badge-fatura{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:#eef1f6;color:var(--azul);margin-right:4px;display:inline-block;margin-bottom:2px;}
+  .ffb-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+  .ffb-btn:hover{background:#eaeaea;}
+  .ffb-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
   .frm-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
   .frm-btn:hover{background:#eaeaea;}
   .frm-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
@@ -409,6 +416,14 @@
           </select>
         </div>
         <div style="grid-column:1 / -1;">
+          <label>Como recebe a fatura</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" class="clFatura" value="plataforma"> Plataforma</label>
+            <label class="checkbox-item"><input type="checkbox" class="clFatura" value="email"> E-mail</label>
+            <label class="checkbox-item"><input type="checkbox" class="clFatura" value="whatsapp"> WhatsApp</label>
+          </div>
+        </div>
+        <div style="grid-column:1 / -1;">
           <label>Observação</label>
           <textarea id="clObs" rows="2" placeholder="Anotações sobre o cliente" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
         </div>
@@ -423,8 +438,15 @@
         <button type="button" class="frc-btn" data-frc="sim">Ativos</button>
         <button type="button" class="frc-btn" data-frc="nao">Inativos</button>
       </div>
+      <div class="filtro-rapido" style="margin-top:8px;">
+        <span style="font-size:12px;color:#999;align-self:center;">Recebe fatura por:</span>
+        <button type="button" class="ffb-btn" data-ffb="plataforma">Plataforma</button>
+        <button type="button" class="ffb-btn" data-ffb="email">E-mail</button>
+        <button type="button" class="ffb-btn" data-ffb="whatsapp">WhatsApp</button>
+        <button type="button" class="ffb-btn" id="limparFiltroFatura">Limpar</button>
+      </div>
       <table>
-        <thead><tr><th>Nome</th><th>CNPJ/CPF</th><th>Telefone</th><th>Cidade/UF</th><th>E-mail</th><th>Contato Financeiro</th><th>Status</th><th>Observação</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>CNPJ/CPF</th><th>Telefone</th><th>Cidade/UF</th><th>E-mail</th><th>Contato Financeiro</th><th>Recebe Fatura</th><th>Status</th><th>Observação</th><th></th></tr></thead>
         <tbody id="listaClientes"></tbody>
       </table>
       <div id="vazioClientes" class="empty" style="display:none;">Nenhum cliente cadastrado ainda.</div>
@@ -562,7 +584,7 @@ async function carregarClientesDoSheets(){
     if(dados.length === 0 && clientes.length > 0) return false; // protege dados locais de uma planilha vazia/desincronizada
     clientes = dados.map(c=>({
       id: String(c.id), nome: c.nome, cpfCnpj: c.cpfCnpj, telefone: c.telefone, cidade: c.cidade,
-      estado: c.estado, email: c.email, contatoFinanceiro: c.contatoFinanceiro, ativo: c.ativo, obs: c.obs
+      estado: c.estado, email: c.email, contatoFinanceiro: c.contatoFinanceiro, ativo: c.ativo, formaFatura: c.formaFatura||[], obs: c.obs
     }));
     await salvarClientes();
     return true;
@@ -1408,12 +1430,16 @@ function atualizarGraficoParticipacaoEstados(contagemPorEstado){
   });
 }
 
+let filtroFaturaCliente = new Set();
+
 function filtrarTabelaClientesPorEstado(){
   const tbody = document.getElementById('listaClientes');
   if(!tbody) return;
   [...tbody.querySelectorAll('tr')].forEach(tr=>{
     const passaStatus = filtroStatusCliente === 'todos' || tr.dataset.ativo === filtroStatusCliente;
-    tr.style.display = passaStatus ? '' : 'none';
+    const faturasDoCliente = (tr.dataset.fatura||'').split(',').filter(Boolean);
+    const passaFatura = filtroFaturaCliente.size === 0 || faturasDoCliente.some(f=>filtroFaturaCliente.has(f));
+    tr.style.display = (passaStatus && passaFatura) ? '' : 'none';
   });
 }
 
@@ -1452,6 +1478,7 @@ function renderClientes(){
     const tr = document.createElement('tr');
     tr.dataset.estado = (c.estado||'').trim().toUpperCase();
     tr.dataset.ativo = c.ativo==='nao' ? 'nao' : 'sim';
+    tr.dataset.fatura = (c.formaFatura||[]).join(',');
 
     if(editandoClienteId === c.id){
       tr.classList.add('edit-row');
@@ -1468,6 +1495,13 @@ function renderClientes(){
         </td>
         <td data-label="E-mail"><input type="email" class="ec-email" value="${(c.email||'').replace(/"/g,'&quot;')}"></td>
         <td data-label="Contato Financeiro"><input type="text" class="ec-contato-financeiro" value="${(c.contatoFinanceiro||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="Recebe Fatura">
+          <div class="checkbox-group" style="gap:8px;padding:0;">
+            <label class="checkbox-item"><input type="checkbox" class="ec-fatura" value="plataforma" ${(c.formaFatura||[]).includes('plataforma')?'checked':''}> Plat.</label>
+            <label class="checkbox-item"><input type="checkbox" class="ec-fatura" value="email" ${(c.formaFatura||[]).includes('email')?'checked':''}> E-mail</label>
+            <label class="checkbox-item"><input type="checkbox" class="ec-fatura" value="whatsapp" ${(c.formaFatura||[]).includes('whatsapp')?'checked':''}> Whats</label>
+          </div>
+        </td>
         <td data-label="Status">
           <select class="ec-ativo">
             <option value="sim" ${(c.ativo!=='nao')?'selected':''}>Ativo</option>
@@ -1491,6 +1525,7 @@ function renderClientes(){
       <td data-label="Cidade/UF">${[c.cidade, c.estado].filter(Boolean).join('/') || '—'}</td>
       <td data-label="E-mail">${c.email || '—'}</td>
       <td data-label="Contato Financeiro">${c.contatoFinanceiro || '—'}</td>
+      <td data-label="Recebe Fatura">${(c.formaFatura&&c.formaFatura.length) ? c.formaFatura.map(f=>`<span class="badge-fatura">${({plataforma:'Plataforma',email:'E-mail',whatsapp:'WhatsApp'})[f]||f}</span>`).join('') : '—'}</td>
       <td data-label="Status"><span class="badge-status ${c.ativo==='nao'?'nao':'sim'}">${c.ativo==='nao'?'Inativo':'Ativo'}</span></td>
       <td data-label="Observação" style="max-width:220px;white-space:normal;">${c.obs || '—'}</td>
       <td class="acoes">
@@ -1533,6 +1568,7 @@ function renderClientes(){
       c.estado = tr.querySelector('.ec-estado').value;
       c.email = tr.querySelector('.ec-email').value.trim();
       c.contatoFinanceiro = tr.querySelector('.ec-contato-financeiro').value.trim();
+      c.formaFatura = [...tr.querySelectorAll('.ec-fatura:checked')].map(cb=>cb.value);
       c.ativo = tr.querySelector('.ec-ativo').value;
       c.obs = tr.querySelector('.ec-obs').value.trim();
       editandoClienteId = null;
@@ -1557,6 +1593,7 @@ document.getElementById('frmCliente').addEventListener('submit', async (e)=>{
     estado: document.getElementById('clEstado').value,
     email: document.getElementById('clEmail').value.trim(),
     contatoFinanceiro: document.getElementById('clContatoFinanceiro').value.trim(),
+    formaFatura: [...document.querySelectorAll('.clFatura:checked')].map(cb=>cb.value),
     ativo: document.getElementById('clAtivo').value,
     obs: document.getElementById('clObs').value.trim()
   };
@@ -1584,6 +1621,21 @@ document.querySelectorAll('.frc-btn').forEach(btn=>{
 
 document.querySelectorAll('.frm-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> aplicarFiltroStatusCliente(btn.dataset.frm));
+});
+
+document.querySelectorAll('.ffb-btn[data-ffb]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const valor = btn.dataset.ffb;
+    if(filtroFaturaCliente.has(valor)){ filtroFaturaCliente.delete(valor); btn.classList.remove('ativo'); }
+    else { filtroFaturaCliente.add(valor); btn.classList.add('ativo'); }
+    filtrarTabelaClientesPorEstado();
+  });
+});
+
+document.getElementById('limparFiltroFatura').addEventListener('click', ()=>{
+  filtroFaturaCliente.clear();
+  document.querySelectorAll('.ffb-btn[data-ffb]').forEach(b=>b.classList.remove('ativo'));
+  filtrarTabelaClientesPorEstado();
 });
 
 carregar();
