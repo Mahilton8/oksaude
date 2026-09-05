@@ -340,9 +340,10 @@
         <button type="button" class="frm-btn" data-frm="nao">Inativos</button>
       </div>
 
-      <div class="cards" style="margin-bottom:16px;">
+      <div class="cards" style="margin-bottom:16px;grid-template-columns:repeat(4,1fr);">
         <div class="card saldo"><div class="label">Estados com atuação</div><div class="valor" id="mapaContEstados">0 de 27</div></div>
         <div class="card receita"><div class="label">% do Brasil coberto</div><div class="valor" id="mapaPercEstados">0%</div></div>
+        <div class="card" style="border-color:#8B5CF6;"><div class="label">Cidades com atuação</div><div class="valor" id="mapaContCidades" style="color:#8B5CF6;">0</div></div>
         <div class="card despesa"><div class="label">Clientes considerados</div><div class="valor" id="mapaContClientes">0</div></div>
       </div>
 
@@ -524,6 +525,15 @@ async function enviarParaSheets(registro, acao, entidade){
   }
 }
 
+function esperar(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+async function enviarListaParaSheetsComPausa(lista, entidade){
+  for(const item of lista){
+    await enviarParaSheets(item, 'upsert', entidade);
+    await esperar(300); // evita sobrecarregar/travar o Apps Script em lotes grandes
+  }
+}
+
 async function carregarDoSheets(){
   if(!webhookUrl) return false;
   try{
@@ -569,7 +579,7 @@ document.getElementById('salvarWebhook').addEventListener('click', async ()=>{
       document.getElementById('syncStatus').textContent = registros.length + ' lançamento(s) carregados da planilha.';
     }else{
       document.getElementById('syncStatus').textContent = 'URL salva. Enviando histórico local...';
-      for(const reg of registros){ await enviarParaSheets(reg,'upsert'); }
+      await enviarListaParaSheetsComPausa(registros, 'lancamento');
       document.getElementById('syncStatus').textContent = 'URL salva. ' + registros.length + ' lançamento(s) enviados.';
     }
     render();
@@ -1087,7 +1097,7 @@ async function estenderRecorrentes(){
   if(novos.length){
     registros.push(...novos);
     await salvarLocal();
-    for(const reg of novos){ await enviarParaSheets(reg,'upsert'); }
+    await enviarListaParaSheetsComPausa(novos, 'lancamento');
   }
 }
 
@@ -1131,7 +1141,7 @@ document.getElementById('frm').addEventListener('submit', async (e)=>{
 
   registros.push(...novos);
   await salvar();
-  for(const reg of novos){ await enviarParaSheets(reg,'upsert'); }
+  await enviarListaParaSheetsComPausa(novos, 'lancamento');
   render();
   e.target.reset();
   popularCategoriasForm();
@@ -1229,7 +1239,7 @@ async function carregarClientes(){
     await salvarClientes();
     try{ localStorage.setItem('clientes_importados_v2', '1'); }catch(e){}
     if(webhookUrl){
-      for(const c of clientes){ await enviarParaSheets(c, 'upsert', 'cliente'); }
+      enviarListaParaSheetsComPausa(clientes, 'cliente'); // em segundo plano, não bloqueia a exibição
     }
   }
 }
@@ -1295,8 +1305,13 @@ function renderMapaBrasil(){
 
   const estadosComCliente = Object.keys(contagemPorEstado).length;
   const totalConsiderado = Object.values(contagemPorEstado).reduce((s,n)=>s+n,0);
+  const cidadesUnicas = new Set(
+    base.filter(c=>(c.cidade||'').trim() && (c.estado||'').trim())
+        .map(c=> c.cidade.trim().toLowerCase() + '|' + c.estado.trim().toUpperCase())
+  );
   document.getElementById('mapaContEstados').textContent = `${estadosComCliente} de 27`;
   document.getElementById('mapaPercEstados').textContent = `${Math.round(estadosComCliente/27*100)}%`;
+  document.getElementById('mapaContCidades').textContent = cidadesUnicas.size;
   document.getElementById('mapaContClientes').textContent = totalConsiderado;
 
   atualizarGraficoParticipacaoEstados(contagemPorEstado);
@@ -1328,7 +1343,7 @@ function renderMapaBrasil(){
 
   Object.values(grupos).forEach(grupo=>{
     const qtd = grupo.clientes.length;
-    const raio = 7 + (qtd/maxQtd)*18;
+    const raio = 4 + (qtd/maxQtd)*10;
     const marker = L.circleMarker([grupo.lat, grupo.lng], {
       radius: raio, fillColor: '#FFC400', color:'#1B2A4A', weight:2, fillOpacity:0.85
     }).addTo(mapaLeaflet);
