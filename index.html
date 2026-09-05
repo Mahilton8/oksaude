@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerenciador Financeiro</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+  :root{
+    --amarelo:#FFC400; --amarelo-esc:#E6A100; --azul:#1B2A4A; --cinza:#333333; --fundo:#F7F7F5;
+    --verde:#1F8A5A; --vermelho:#C0392B;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:Segoe UI,Arial,sans-serif;background:var(--fundo);color:var(--cinza);margin:0;}
+  .wrap{max-width:1300px;width:100%;}
+  .app-layout{display:flex;min-height:100vh;}
+  .sidebar{width:230px;flex-shrink:0;background:var(--azul);padding:22px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .sidebar-brand{padding:0 20px 18px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.15);}
+  .sidebar-brand-title{color:#fff;font-weight:700;font-size:16px;line-height:1.3;}
+  .sidebar-brand-sub{color:rgba(255,255,255,.55);font-size:11px;margin-top:2px;}
+  .sidebar-nav{display:flex;flex-direction:column;}
+  .side-group-label{color:rgba(255,255,255,.45);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;padding:16px 20px 6px;}
+  .side-group-toggle{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+  .side-group-toggle .grupo-seta{font-size:11px;transition:transform .15s;}
+  .side-group-toggle.aberto .grupo-seta{transform:rotate(90deg);}
+  .side-submenu{display:flex;flex-direction:column;}
+  .side-btn{background:none;border:none;color:#cdd6e8;text-align:left;padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;border-left:3px solid transparent;}
+  .side-btn:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .side-btn.ativa{background:rgba(255,196,0,.14);color:var(--amarelo);border-left-color:var(--amarelo);}
+  .side-btn.sub{padding-left:34px;font-weight:500;font-size:13px;}
+  .main-content{flex:1;min-width:0;padding:24px;}
+  h1{color:var(--azul);font-size:22px;margin-bottom:4px;}
+  .sub{color:#777;font-size:13px;margin-bottom:20px;}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+  .card.pendente{border-style:dashed;opacity:.9;}
+  .card{background:#fff;border-radius:10px;padding:14px 16px;border-left:5px solid var(--amarelo);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .card.receita{border-color:var(--verde);}
+  .card.despesa{border-color:var(--vermelho);}
+  .card.saldo{border-color:var(--azul);}
+  .card .label{font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.5px;}
+  .card .valor{font-size:22px;font-weight:700;margin-top:4px;color:var(--azul);}
+  .card.receita .valor{color:var(--verde);}
+  .card.despesa .valor{color:var(--vermelho);}
+  .panel{background:#fff;border-radius:10px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .panel h2{font-size:15px;color:var(--azul);margin-top:0;margin-bottom:12px;}
+  form{display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;align-items:end;}
+  form button{grid-column:span 1;}
+  label{font-size:11px;color:#888;display:block;margin-bottom:3px;}
+  input,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;}
+  button{background:var(--amarelo);border:none;color:var(--azul);font-weight:700;padding:9px 14px;border-radius:6px;cursor:pointer;font-size:13px;}
+  button:hover{background:var(--amarelo-esc);color:#fff;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:#888;font-weight:600;font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:2px solid #eee;}
+  td{padding:8px;border-bottom:1px solid #f0f0f0;}
+  tr:hover{background:#fafafa;}
+  .tag{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .tag.receita{background:#e6f6ee;color:var(--verde);}
+  .tag.despesa{background:#fbeae7;color:var(--vermelho);}
+  .tag.categoria{background:#eef1f6;color:var(--azul);}
+  .del{background:none;border:none;color:#bbb;cursor:pointer;font-size:15px;padding:0;}
+  .del:hover{color:var(--vermelho);}
+  .empty{color:#999;text-align:center;padding:20px;font-size:13px;}
+  .filtros{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;background:#fff;padding:12px 14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .graficos-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  .chart-wrap{position:relative;height:240px;}
+  .filtro-rapido{display:flex;gap:8px;margin-bottom:14px;}
+  .fr-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+  .fr-btn:hover{background:#eaeaea;}
+  .fr-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
+  .frc-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+  .frc-btn:hover{background:#eaeaea;}
+  .frc-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
+  .badge-status{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-status.sim{background:#e6f6ee;color:var(--verde);}
+  .badge-status.nao{background:#f0f0f0;color:#888;}
+  .frm-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+  .frm-btn:hover{background:#eaeaea;}
+  .frm-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
+  .cliente-estado-item{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:13px;gap:10px;}
+  .cliente-estado-item:last-child{border-bottom:none;}
+  .cliente-estado-item .nome{flex:1;color:var(--cinza);}
+  .leaflet-popup-content{font-family:Segoe UI,Arial,sans-serif;}
+  .popup-estado-titulo{font-weight:700;color:var(--azul);font-size:14px;margin-bottom:4px;}
+  .popup-estado-link{color:var(--amarelo-esc);font-weight:600;cursor:pointer;font-size:12px;}
+  .filtros select{width:auto;}
+  .acoes{display:flex;gap:10px;justify-content:flex-end;align-items:center;}
+  .icobtn{background:none;border:none;color:#bbb;cursor:pointer;font-size:15px;padding:0;line-height:1;}
+  .icobtn:hover{color:var(--azul);}
+  .icobtn.del:hover{color:var(--vermelho);}
+  .status-btn{border:none;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;}
+  .status-btn.pago{background:#e6f6ee;color:var(--verde);}
+  .status-btn.pendente{background:#fdf1de;color:var(--amarelo-esc);}
+  tr.pago td{opacity:.55;}
+  .edit-row input,.edit-row select{padding:5px;font-size:12px;}
+  .icobtn{background:none;border:1px solid #ddd;color:#666;cursor:pointer;font-size:13px;padding:6px 10px;border-radius:6px;margin-left:4px;}
+  .icobtn:hover{background:#f5f5f5;}
+  .icobtn.excluir-opt:hover{background:#fbeae7;color:var(--vermelho);border-color:#f3c9c2;}
+  .icobtn.editar-opt:hover{background:#eef1f6;color:var(--azul);border-color:#c9d3e6;}
+  .icobtn.status-toggle-opt{font-size:11px;}
+  .icobtn.status-toggle-opt:hover{background:#e6f6ee;color:var(--verde);border-color:#bfe6d0;}
+  .sim-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+  .sim-item:last-child{border-bottom:none;}
+  .sim-item input[type="checkbox"]{width:17px;height:17px;accent-color:var(--amarelo-esc);flex-shrink:0;cursor:pointer;}
+  .sim-item .sim-desc{flex:1;color:var(--cinza);}
+  .sim-item .sim-cat{color:#999;font-size:11px;}
+  .sim-item .sim-valor{font-weight:600;white-space:nowrap;}
+  .sim-item.desmarcado{opacity:.4;}
+  .sim-item.desmarcado .sim-desc{text-decoration:line-through;}
+
+  @media (max-width: 860px){
+    body{padding:12px;}
+    h1{font-size:19px;}
+    .cards{grid-template-columns:1fr 1fr;}
+    .cards .card.saldo{grid-column:1 / -1;}
+    .graficos-grid{grid-template-columns:1fr;}
+    .card .valor{font-size:18px;}
+    .panel{padding:14px;}
+    form{grid-template-columns:1fr 1fr;}
+    form button{grid-column:1 / -1;}
+    table thead{display:none;}
+    table, tbody, tr, td{display:block;width:100%;}
+    tr{background:#fff;border:1px solid #eee;border-radius:10px;margin-bottom:10px;padding:10px 12px;}
+    td{border:none;padding:4px 0;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    td:before{content:attr(data-label);font-size:11px;color:#999;text-transform:uppercase;font-weight:600;}
+    td.acoes{justify-content:flex-end;}
+    td.acoes:before{content:'';}
+    .edit-row td{flex-direction:column;align-items:stretch;}
+    .edit-row input,.edit-row select{width:100%;}
+    .app-layout{flex-direction:column;}
+    .sidebar{width:100%;flex-direction:row;flex-wrap:wrap;padding:10px;position:static;height:auto;}
+    .sidebar-brand{display:none;}
+    .side-group-label{width:100%;padding:6px 8px 2px;}
+    .side-btn{width:auto;padding:8px 12px;border-radius:6px;}
+    .main-content{padding:12px;}
+    #mapaBrasilReal{height:320px !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-title">Gerenciador Financeiro</div>
+      <div class="sidebar-brand-sub">Máxima Consultoria</div>
+    </div>
+    <nav class="sidebar-nav">
+      <button type="button" class="side-btn ativa" data-aba="clientes">👥 Clientes</button>
+      <button type="button" class="side-btn" data-aba="prospeccao">📍 Prospecção</button>
+      <button type="button" class="side-btn side-group-toggle" id="btnGrupoFinanceiro">💰 Financeiro <span class="grupo-seta">▸</span></button>
+      <div class="side-submenu" id="submenuFinanceiro" style="display:none;">
+        <button type="button" class="side-btn sub" data-aba="lancamentos">Lançamentos</button>
+        <button type="button" class="side-btn sub" data-aba="simulador">Simulador</button>
+        <button type="button" class="side-btn sub" data-aba="dashboard">Dashboard</button>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+<div class="wrap">
+
+
+  <div id="aba-dashboard" class="aba-conteudo" style="display:none;">
+    <div class="filtros">
+      <select id="filtroTipo">
+        <option value="todos">Todos</option>
+        <option value="receita">Receitas</option>
+        <option value="despesa">Despesas</option>
+      </select>
+      <select id="filtroMes">
+        <option value="todos">Mês corrente</option>
+      </select>
+      <select id="filtroStatus">
+        <option value="todos">Todos os status</option>
+        <option value="pago">Pago</option>
+        <option value="pendente">Pendente</option>
+      </select>
+      <select id="filtroCategoria">
+        <option value="todos">Todas as categorias</option>
+      </select>
+      <span style="font-size:12px;color:#999;align-self:center;">de</span>
+      <input type="date" id="filtroDataIni" style="width:auto;">
+      <span style="font-size:12px;color:#999;align-self:center;">até</span>
+      <input type="date" id="filtroDataFim" style="width:auto;">
+      <button type="button" id="limparPeriodo" style="padding:8px 10px;">Limpar período</button>
+      <button type="button" id="verHistoricoCompleto" style="padding:8px 10px;">Ver todo o histórico</button>
+    </div>
+
+    <div class="cards">
+      <div class="card receita"><div class="label">Receitas</div><div class="valor" id="totReceita">R$ 0,00</div></div>
+      <div class="card despesa"><div class="label">Despesas</div><div class="valor" id="totDespesa">R$ 0,00</div></div>
+      <div class="card saldo"><div class="label">Saldo</div><div class="valor" id="saldo">R$ 0,00</div></div>
+      <div class="card receita pendente"><div class="label">Receitas pendentes</div><div class="valor" id="totReceitaPendente">R$ 0,00</div></div>
+      <div class="card despesa pendente"><div class="label">Despesas pendentes</div><div class="valor" id="totDespesaPendente">R$ 0,00</div></div>
+    </div>
+
+    <div class="panel" id="painelVariacao">
+      <h2>Variação mês a mês <span id="variacaoLabelMeses" style="font-weight:400;font-size:12px;color:#999;"></span></h2>
+      <div class="cards" style="margin-bottom:0;">
+        <div class="card"><div class="label">Receitas</div><div class="valor" id="variacaoReceita">—</div></div>
+        <div class="card"><div class="label">Despesas</div><div class="valor" id="variacaoDespesa">—</div></div>
+        <div class="card"><div class="label">Saldo</div><div class="valor" id="variacaoSaldo">—</div></div>
+      </div>
+      <div id="variacaoVazio" class="empty" style="display:none;">É preciso ao menos dois meses com lançamentos para calcular a variação.</div>
+    </div>
+
+    <div class="graficos-grid">
+      <div class="panel">
+        <h2>Receitas x Despesas por mês</h2>
+        <div class="chart-wrap"><canvas id="chartColunas"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Despesas por categoria</h2>
+        <div class="chart-wrap"><canvas id="chartPizzaDespesa"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Resumo mensal</h2>
+      <table>
+        <thead><tr><th>Mês</th><th style="text-align:right">Receitas</th><th style="text-align:right">Despesas</th><th style="text-align:right">Saldo do mês</th><th style="text-align:right">Variação vs. mês anterior</th></tr></thead>
+        <tbody id="listaResumoMensal"></tbody>
+      </table>
+      <div id="vazioResumo" class="empty" style="display:none;">Nenhum lançamento no período.</div>
+    </div>
+
+    <div class="panel" style="display:none;">
+      <h2>Sincronização com Google Sheets</h2>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;">
+          <label>URL do Web App (Google Apps Script)</label>
+          <input id="webhookUrl" type="text" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <button id="salvarWebhook" type="button">Salvar</button>
+      </div>
+      <div id="syncStatus" style="font-size:12px;color:#999;margin-top:8px;">Cada lançamento é enviado automaticamente ao salvar.</div>
+    </div>
+  </div>
+
+  <div id="aba-lancamentos" class="aba-conteudo" style="display:none;">
+    <div class="panel">
+      <h2>Novo lançamento</h2>
+      <form id="frm">
+        <div>
+          <label>Tipo</label>
+          <select id="tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option></select>
+        </div>
+        <div>
+          <label>Categoria</label>
+          <select id="categoria"></select>
+        </div>
+        <div>
+          <label>Descrição</label>
+          <input id="desc" type="text" placeholder="Ex: Salário, Aluguel" required>
+        </div>
+        <div>
+          <label id="labelValor">Valor (R$)</label>
+          <input id="valor" type="number" step="0.01" min="0" placeholder="0,00" required>
+        </div>
+        <div>
+          <label>Data</label>
+          <input id="data" type="date" required>
+        </div>
+        <div>
+          <label>Cliente</label>
+          <select id="lancCliente">
+            <option value="">Nenhum</option>
+          </select>
+        </div>
+        <div>
+          <label>Recorrência</label>
+          <select id="recorrencia">
+            <option value="unico">Único</option>
+            <option value="recorrente">Recorrente (sem data para acabar)</option>
+            <option value="parcelado">Parcelado</option>
+          </select>
+        </div>
+        <div id="wrapQtd" style="display:none;">
+          <label>Número de parcelas</label>
+          <input id="qtdRepeticoes" type="number" min="2" step="1" value="2">
+        </div>
+        <button type="submit">Adicionar</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Lançamentos</h2>
+      <div class="filtro-rapido">
+        <button type="button" class="fr-btn ativo" data-fr="todos">Todos</button>
+        <button type="button" class="fr-btn" data-fr="receita">Receitas</button>
+        <button type="button" class="fr-btn" data-fr="despesa">Despesas</button>
+      </div>
+      <div class="filtros" style="margin-top:0;margin-bottom:14px;">
+        <span style="font-size:12px;color:#999;align-self:center;">Período:</span>
+        <input type="date" id="lancDataIni" style="width:auto;">
+        <span style="font-size:12px;color:#999;align-self:center;">até</span>
+        <input type="date" id="lancDataFim" style="width:auto;">
+        <button type="button" id="okPeriodoLanc" style="padding:8px 14px;">OK</button>
+        <button type="button" id="limparPeriodoLanc" style="padding:8px 10px;">Limpar (usar mês corrente)</button>
+      </div>
+      <table>
+        <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Cliente</th><th style="text-align:right">Valor</th><th>Status</th><th></th></tr></thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div id="vazio" class="empty" style="display:none;">Nenhum lançamento ainda.</div>
+    </div>
+  </div>
+
+  <div id="aba-simulador" class="aba-conteudo" style="display:none;">
+    <div class="filtros">
+      <select id="simMes"></select>
+    </div>
+
+    <div class="cards">
+      <div class="card receita"><div class="label">Receitas simuladas</div><div class="valor" id="simTotReceita">R$ 0,00</div></div>
+      <div class="card despesa"><div class="label">Despesas simuladas</div><div class="valor" id="simTotDespesa">R$ 0,00</div></div>
+      <div class="card saldo"><div class="label">Saldo simulado</div><div class="valor" id="simSaldo">R$ 0,00</div></div>
+    </div>
+
+    <div class="graficos-grid">
+      <div class="panel">
+        <h2>Receitas do mês <span style="font-weight:400;font-size:12px;color:#999;">(desmarque para excluir da simulação)</span></h2>
+        <div id="simListaReceitas"></div>
+        <div id="simVazioReceitas" class="empty" style="display:none;">Nenhuma receita neste mês.</div>
+      </div>
+      <div class="panel">
+        <h2>Despesas do mês <span style="font-weight:400;font-size:12px;color:#999;">(desmarque para excluir da simulação)</span></h2>
+        <div id="simListaDespesas"></div>
+        <div id="simVazioDespesas" class="empty" style="display:none;">Nenhuma despesa neste mês.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aba-clientes" class="aba-conteudo">
+    <div class="panel">
+      <h2>Mapa de Atuação por Estado</h2>
+
+      <div class="filtro-rapido">
+        <button type="button" class="frm-btn ativo" data-frm="todos">Todos</button>
+        <button type="button" class="frm-btn" data-frm="sim">Ativos</button>
+        <button type="button" class="frm-btn" data-frm="nao">Inativos</button>
+      </div>
+
+      <div class="cards" style="margin-bottom:16px;">
+        <div class="card saldo"><div class="label">Estados com atuação</div><div class="valor" id="mapaContEstados">0 de 27</div></div>
+        <div class="card receita"><div class="label">% do Brasil coberto</div><div class="valor" id="mapaPercEstados">0%</div></div>
+        <div class="card despesa"><div class="label">Clientes considerados</div><div class="valor" id="mapaContClientes">0</div></div>
+      </div>
+
+      <div id="mapaBrasilReal" style="height:440px;border-radius:10px;overflow:hidden;border:1px solid #eee;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Participação por estado</h2>
+      <div class="chart-wrap" style="height:320px;">
+        <canvas id="chartParticipacaoEstados"></canvas>
+      </div>
+    </div>
+
+    <div class="panel" id="painelClientesEstado" style="display:none;">
+      <h2 id="tituloClientesEstado">Clientes</h2>
+      <div id="listaClientesEstado"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Novo cliente</h2>
+      <form id="frmCliente">
+        <div>
+          <label>Nome</label>
+          <input id="clNome" type="text" placeholder="Nome do cliente" required>
+        </div>
+        <div>
+          <label>CNPJ/CPF</label>
+          <input id="clCpfCnpj" type="text" placeholder="00.000.000/0000-00">
+        </div>
+        <div>
+          <label>Telefone</label>
+          <input id="clTelefone" type="text" placeholder="(00) 00000-0000">
+        </div>
+        <div>
+          <label>Cidade</label>
+          <input id="clCidade" type="text" placeholder="Cidade">
+        </div>
+        <div>
+          <label>Estado</label>
+          <select id="clEstado">
+            <option value="">Selecione</option>
+            <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+            <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+            <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+            <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+            <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option>
+            <option>SE</option><option>TO</option>
+          </select>
+        </div>
+        <div>
+          <label>E-mail</label>
+          <input id="clEmail" type="email" placeholder="email@exemplo.com">
+        </div>
+        <div>
+          <label>Contato do Financeiro</label>
+          <input id="clContatoFinanceiro" type="text" placeholder="Nome e telefone/e-mail do financeiro">
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="clAtivo">
+            <option value="sim" selected>Ativo</option>
+            <option value="nao">Inativo</option>
+          </select>
+        </div>
+        <div style="grid-column:1 / -1;">
+          <label>Observação</label>
+          <textarea id="clObs" rows="2" placeholder="Anotações sobre o cliente" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+        </div>
+        <button type="submit">Adicionar</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Clientes cadastrados</h2>
+      <div class="filtro-rapido">
+        <button type="button" class="frc-btn ativo" data-frc="todos">Todos</button>
+        <button type="button" class="frc-btn" data-frc="sim">Ativos</button>
+        <button type="button" class="frc-btn" data-frc="nao">Inativos</button>
+      </div>
+      <table>
+        <thead><tr><th>Nome</th><th>CNPJ/CPF</th><th>Telefone</th><th>Cidade/UF</th><th>E-mail</th><th>Contato Financeiro</th><th>Status</th><th>Observação</th><th></th></tr></thead>
+        <tbody id="listaClientes"></tbody>
+      </table>
+      <div id="vazioClientes" class="empty" style="display:none;">Nenhum cliente cadastrado ainda.</div>
+    </div>
+  </div>
+
+  <div id="aba-prospeccao" class="aba-conteudo" style="display:none;height:calc(100vh - 48px);">
+    <iframe src="prospeccao.html" title="Prospecção" style="width:100%;height:100%;border:none;border-radius:10px;background:#fff;"></iframe>
+  </div>
+</div>
+  </main>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+let chartColunas, chartPizzaDespesa;
+const CORES = ['#FFC400','#1B2A4A','#1F8A5A','#C0392B','#E6A100','#5B6B8C','#8BC34A','#D97706','#607D8B','#9B59B6'];
+let registros = [];
+
+const CATEGORIAS_BASE = {
+  receita: ['Vendas','Pró-labore','Prestação de serviços','Investimentos','Outras receitas'],
+  despesa: ['Fornecedores','Folha de pagamento','Aluguel','Impostos','Marketing','Manutenção','Outras despesas']
+};
+let categoriasExtras = { receita: [], despesa: [] };
+
+function todasCategorias(tipo){
+  return [...CATEGORIAS_BASE[tipo], ...categoriasExtras[tipo]];
+}
+
+async function carregarCategoriasExtras(){
+  try{
+    const r = localStorage.getItem('categorias_extras');
+    categoriasExtras = r ? JSON.parse(r) : { receita: [], despesa: [] };
+  }catch(e){ categoriasExtras = { receita: [], despesa: [] }; }
+}
+
+async function salvarCategoriasExtras(){
+  try{ localStorage.setItem('categorias_extras', JSON.stringify(categoriasExtras)); }catch(e){}
+}
+
+function popularCategoriasForm(valorSelecionado){
+  const tipo = document.getElementById('tipo').value;
+  const sel = document.getElementById('categoria');
+  sel.innerHTML = todasCategorias(tipo).map(c=>`<option value="${c}">${c}</option>`).join('')
+    + '<option value="__nova__">+ Nova categoria...</option>';
+  if(valorSelecionado) sel.value = valorSelecionado;
+}
+
+document.getElementById('categoria').addEventListener('change', async (e)=>{
+  if(e.target.value === '__nova__'){
+    const tipo = document.getElementById('tipo').value;
+    const nome = prompt('Nome da nova categoria:');
+    if(nome && nome.trim()){
+      const nomeLimpo = nome.trim();
+      if(!todasCategorias(tipo).includes(nomeLimpo)){
+        categoriasExtras[tipo].push(nomeLimpo);
+        await salvarCategoriasExtras();
+      }
+      popularCategoriasForm(nomeLimpo);
+    } else {
+      popularCategoriasForm();
+    }
+  }
+});
+
+function fmt(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function nomeClientePorId(id){
+  if(!id) return '';
+  const c = clientes.find(c=>c.id===id);
+  return c ? c.nome : '';
+}
+
+const WEBHOOK_URL_PADRAO = 'https://script.google.com/macros/s/AKfycby0J5VeOQXFQ8vSPBh7CrtzOGrDpo5W3LxJ2RnCfjNGe90Nk8YeUFTFtafZ4WT0sRaA/exec';
+let webhookUrl = '';
+
+async function carregarWebhook(){
+  try{
+    webhookUrl = localStorage.getItem('webhook_url') || WEBHOOK_URL_PADRAO;
+  }catch(e){ webhookUrl = WEBHOOK_URL_PADRAO; }
+  document.getElementById('webhookUrl').value = webhookUrl;
+}
+
+async function enviarParaSheets(registro, acao, entidade){
+  if(!webhookUrl) return;
+  const status = document.getElementById('syncStatus');
+  try{
+    await fetch(webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ acao, registro, entidade: entidade || 'lancamento' })
+    });
+    if(status) status.textContent = 'Último envio: ' + new Date().toLocaleTimeString('pt-BR');
+  }catch(e){
+    if(status) status.textContent = 'Falha ao enviar para o Google Sheets.';
+  }
+}
+
+async function carregarDoSheets(){
+  if(!webhookUrl) return false;
+  try{
+    const resp = await fetch(webhookUrl + '?acao=listar&entidade=lancamento');
+    if(!resp.ok) return false;
+    const dados = await resp.json();
+    if(!Array.isArray(dados)) return false;
+    if(dados.length === 0 && registros.length > 0) return false; // protege dados locais de uma planilha vazia/desincronizada
+    registros = dados.map(r=>({
+      id: String(r.id), data: r.data, desc: r.desc, tipo: r.tipo,
+      categoria: r.categoria, valor: parseFloat(r.valor)||0, pago: r.pago===true||r.pago==='Sim',
+      clienteId: r.clienteId || ''
+    }));
+    await salvarLocal();
+    return true;
+  }catch(e){ return false; }
+}
+
+async function carregarClientesDoSheets(){
+  if(!webhookUrl) return false;
+  try{
+    const resp = await fetch(webhookUrl + '?acao=listar&entidade=cliente');
+    if(!resp.ok) return false;
+    const dados = await resp.json();
+    if(!Array.isArray(dados)) return false;
+    if(dados.length === 0 && clientes.length > 0) return false; // protege dados locais de uma planilha vazia/desincronizada
+    clientes = dados.map(c=>({
+      id: String(c.id), nome: c.nome, cpfCnpj: c.cpfCnpj, telefone: c.telefone, cidade: c.cidade,
+      estado: c.estado, email: c.email, contatoFinanceiro: c.contatoFinanceiro, ativo: c.ativo, obs: c.obs
+    }));
+    await salvarClientes();
+    return true;
+  }catch(e){ return false; }
+}
+
+document.getElementById('salvarWebhook').addEventListener('click', async ()=>{
+  webhookUrl = document.getElementById('webhookUrl').value.trim();
+  try{ localStorage.setItem('webhook_url', webhookUrl); }catch(e){}
+  document.getElementById('syncStatus').textContent = webhookUrl ? 'URL salva. Buscando dados da planilha...' : 'URL removida.';
+  if(webhookUrl){
+    const carregou = await carregarDoSheets();
+    if(carregou){
+      document.getElementById('syncStatus').textContent = registros.length + ' lançamento(s) carregados da planilha.';
+    }else{
+      document.getElementById('syncStatus').textContent = 'URL salva. Enviando histórico local...';
+      for(const reg of registros){ await enviarParaSheets(reg,'upsert'); }
+      document.getElementById('syncStatus').textContent = 'URL salva. ' + registros.length + ' lançamento(s) enviados.';
+    }
+    render();
+  }
+});
+
+async function carregar(){
+  try{
+    const r = localStorage.getItem('registros');
+    registros = r ? JSON.parse(r) : [];
+  }catch(e){ registros = []; }
+  await carregarCategoriasExtras();
+  await carregarWebhook();
+  if(webhookUrl){ await carregarDoSheets(); }
+  await carregarExclusoesRecorrentes();
+  await estenderRecorrentes();
+  await carregarClientes();
+  popularCategoriasForm();
+  render();
+  renderClientes();
+}
+
+async function salvarLocal(){
+  try{ localStorage.setItem('registros', JSON.stringify(registros)); }catch(e){}
+}
+
+async function salvar(){
+  await salvarLocal();
+}
+
+let editandoId = null;
+let filtroRapido = 'todos';
+let periodoLancConfirmado = null; // {ini, fim} — só definido ao clicar OK; null = usa mês corrente
+
+function primeiroDiaMesAtual(){
+  const hoje = new Date();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+}
+function ultimoDiaMesAtual(){
+  const hoje = new Date();
+  const ultimo = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(ultimo).padStart(2,'0')}`;
+}
+
+function render(){
+  const filtro = document.getElementById('filtroTipo').value;
+  const mes = document.getElementById('filtroMes').value;
+  const status = document.getElementById('filtroStatus').value;
+  const categoria = document.getElementById('filtroCategoria').value;
+  const dataIni = document.getElementById('filtroDataIni').value;
+  const dataFim = document.getElementById('filtroDataFim').value;
+  const lista = document.getElementById('lista');
+  const vazio = document.getElementById('vazio');
+  lista.innerHTML = '';
+
+  atualizarOpcoesMes(mes);
+  atualizarOpcoesCategoria(categoria);
+
+  // período de busca da aba Lançamentos — só é aplicado ao confirmar no botão OK; sem confirmação, usa o mês corrente
+  const lancDataIni = periodoLancConfirmado ? periodoLancConfirmado.ini : primeiroDiaMesAtual();
+  const lancDataFim = periodoLancConfirmado ? periodoLancConfirmado.fim : ultimoDiaMesAtual();
+
+  const ordenados = [...registros].sort((a,b)=> new Date(a.data)-new Date(b.data));
+  let filtrados = filtro==='todos' ? ordenados : ordenados.filter(r=>r.tipo===filtro);
+  if(filtroRapido !== 'todos'){ filtrados = filtrados.filter(r=> r.tipo === filtroRapido); }
+  filtrados = filtrados.filter(r=> r.data >= lancDataIni && r.data <= lancDataFim);
+  if(mes !== 'todos'){ filtrados = filtrados.filter(r=> r.data.slice(0,7) === mes); }
+  if(status !== 'todos'){ filtrados = filtrados.filter(r=> (status==='pago') === !!r.pago); }
+  if(categoria !== 'todos'){ filtrados = filtrados.filter(r=> r.categoria === categoria); }
+  if(dataIni){ filtrados = filtrados.filter(r=> r.data >= dataIni); }
+  if(dataFim){ filtrados = filtrados.filter(r=> r.data <= dataFim); }
+
+  if(filtrados.length===0){ vazio.style.display='block'; } else { vazio.style.display='none'; }
+
+  filtrados.forEach(r=>{
+    const tr = document.createElement('tr');
+    if(r.pago) tr.classList.add('pago');
+
+    if(editandoId === r.id){
+      tr.classList.add('edit-row');
+      tr.innerHTML = `
+        <td data-label="Data"><input type="date" class="e-data" value="${r.data}"></td>
+        <td data-label="Descrição"><input type="text" class="e-desc" value="${r.desc.replace(/"/g,'&quot;')}"></td>
+        <td data-label="Tipo">
+          <select class="e-tipo">
+            <option value="receita" ${r.tipo==='receita'?'selected':''}>Receita</option>
+            <option value="despesa" ${r.tipo==='despesa'?'selected':''}>Despesa</option>
+          </select>
+        </td>
+        <td data-label="Categoria">
+          <select class="e-categoria">
+            ${todasCategorias(r.tipo).map(c=>`<option value="${c}" ${r.categoria===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="Cliente">
+          <select class="e-cliente">
+            <option value="">Nenhum</option>
+            ${[...clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}" ${r.clienteId===c.id?'selected':''}>${c.nome}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="Valor" style="text-align:right"><input type="number" step="0.01" min="0" class="e-valor" value="${r.valor}" style="text-align:right"></td>
+        <td></td>
+        <td class="acoes">
+          <button type="button" class="icobtn salvar-edit" data-id="${r.id}" title="Salvar"><b>✓</b></button>
+          <button type="button" class="icobtn cancelar-edit" title="Cancelar">✕</button>
+        </td>
+      `;
+      lista.appendChild(tr);
+      return;
+    }
+
+    const dataFmt = new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR');
+    tr.innerHTML = `
+      <td data-label="Data">${dataFmt}</td>
+      <td data-label="Descrição">${r.desc}</td>
+      <td data-label="Tipo"><span class="tag ${r.tipo}">${r.tipo==='receita'?'Receita':'Despesa'}</span></td>
+      <td data-label="Categoria"><span class="tag categoria">${r.categoria||'—'}</span></td>
+      <td data-label="Cliente">${nomeClientePorId(r.clienteId) || '—'}</td>
+      <td data-label="Valor" style="text-align:right">${fmt(r.valor)}</td>
+      <td data-label="Status"><button type="button" class="status-btn ${r.pago?'pago':'pendente'}" data-id="${r.id}">${r.pago?'Pago':'Pendente'}</button></td>
+      <td class="acoes">
+        <button type="button" class="icobtn status-toggle-opt" data-id="${r.id}" title="${r.pago?'Marcar como pendente':'Marcar como pago'}">${r.pago?'↩ Desfazer pago':'✔ Marcar pago'}</button>
+        <button type="button" class="icobtn editar-opt" data-id="${r.id}" title="Editar">✎</button>
+        <button type="button" class="icobtn excluir-opt" data-id="${r.id}" title="Excluir">✕</button>
+      </td>
+    `;
+    lista.appendChild(tr);
+  });
+
+  lista.querySelectorAll('.status-btn').forEach(b=>{
+    b.onclick = async ()=>{
+      const reg = registros.find(r=>r.id===b.dataset.id);
+      if(reg){ reg.pago = !reg.pago; await salvar(); await enviarParaSheets(reg,'upsert'); render(); }
+    };
+  });
+
+  lista.querySelectorAll('.status-toggle-opt').forEach(b=>{
+    b.onclick = async (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      const reg = registros.find(r=>r.id===b.dataset.id);
+      if(reg){ reg.pago = !reg.pago; await salvar(); await enviarParaSheets(reg,'upsert'); render(); }
+    };
+  });
+
+  lista.querySelectorAll('.editar-opt').forEach(b=>{
+    b.onclick = (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      editandoId = b.dataset.id;
+      render();
+    };
+  });
+
+  lista.querySelectorAll('.excluir-opt').forEach(b=>{
+    b.onclick = async (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      const reg = registros.find(r=>r.id===b.dataset.id);
+      registros = registros.filter(r=>r.id !== b.dataset.id);
+      if(reg && reg.serieId && reg.recorrente){
+        exclusoesRecorrentes.add(reg.serieId + '|' + reg.data);
+        await salvarExclusoesRecorrentes();
+      }
+      await salvar();
+      if(reg) await enviarParaSheets(reg,'excluir');
+      render();
+    };
+  });
+
+  lista.querySelectorAll('.cancelar-edit').forEach(b=>{
+    b.onclick = (ev)=>{ ev.preventDefault(); editandoId = null; render(); };
+  });
+
+  lista.querySelectorAll('.e-tipo').forEach(sel=>{
+    sel.onchange = ()=>{
+      const tr = sel.closest('tr');
+      const catSel = tr.querySelector('.e-categoria');
+      catSel.innerHTML = todasCategorias(sel.value).map(c=>`<option value="${c}">${c}</option>`).join('');
+    };
+  });
+
+  lista.querySelectorAll('.salvar-edit').forEach(b=>{
+    b.onclick = async ()=>{
+      const tr = b.closest('tr');
+      const reg = registros.find(r=>r.id===b.dataset.id);
+      if(!reg) return;
+      const novoValor = parseFloat(tr.querySelector('.e-valor').value);
+      const novaData = tr.querySelector('.e-data').value;
+      const novaDesc = tr.querySelector('.e-desc').value.trim();
+      const novoTipo = tr.querySelector('.e-tipo').value;
+      const novaCategoria = tr.querySelector('.e-categoria').value;
+      const novoClienteId = tr.querySelector('.e-cliente').value;
+      if(!novaDesc || isNaN(novoValor) || !novaData) return;
+      reg.desc = novaDesc; reg.valor = novoValor; reg.data = novaData; reg.tipo = novoTipo; reg.categoria = novaCategoria; reg.clienteId = novoClienteId;
+      editandoId = null;
+      await salvar();
+      await enviarParaSheets(reg,'upsert');
+      render();
+    };
+  });
+
+  // padrão: mês corrente, a menos que um mês específico ou um período customizado seja informado
+  let baseTotais;
+  if(dataIni || dataFim){
+    baseTotais = registros;
+  } else if(mes !== 'todos'){
+    baseTotais = registros.filter(r=> r.data.slice(0,7) === mes);
+  } else {
+    baseTotais = registros.filter(r=> r.data >= primeiroDiaMesAtual() && r.data <= ultimoDiaMesAtual());
+  }
+  if(status !== 'todos'){ baseTotais = baseTotais.filter(r=> (status==='pago') === !!r.pago); }
+  if(categoria !== 'todos'){ baseTotais = baseTotais.filter(r=> r.categoria === categoria); }
+  if(dataIni){ baseTotais = baseTotais.filter(r=> r.data >= dataIni); }
+  if(dataFim){ baseTotais = baseTotais.filter(r=> r.data <= dataFim); }
+  const totReceita = baseTotais.filter(r=>r.tipo==='receita').reduce((s,r)=>s+r.valor,0);
+  const totDespesa = baseTotais.filter(r=>r.tipo==='despesa').reduce((s,r)=>s+r.valor,0);
+  document.getElementById('totReceita').textContent = fmt(totReceita);
+  document.getElementById('totDespesa').textContent = fmt(totDespesa);
+  document.getElementById('saldo').textContent = fmt(totReceita-totDespesa);
+
+  const totReceitaPendente = baseTotais.filter(r=>r.tipo==='receita' && !r.pago).reduce((s,r)=>s+r.valor,0);
+  const totDespesaPendente = baseTotais.filter(r=>r.tipo==='despesa' && !r.pago).reduce((s,r)=>s+r.valor,0);
+  document.getElementById('totReceitaPendente').textContent = fmt(totReceitaPendente);
+  document.getElementById('totDespesaPendente').textContent = fmt(totDespesaPendente);
+
+  atualizarGraficos(baseTotais);
+  atualizarResumoMensal(baseTotais);
+
+  if(document.getElementById('simMes')){
+    popularSimMes();
+    renderSimulador();
+  }
+}
+
+function atualizarGraficos(dados){
+  if(typeof Chart === 'undefined') return;
+
+  // Receitas x Despesas por mês
+  const meses = [...new Set(dados.map(r=>r.data.slice(0,7)))].sort();
+  const receitasPorMes = meses.map(m=> dados.filter(r=>r.tipo==='receita' && r.data.slice(0,7)===m).reduce((s,r)=>s+r.valor,0));
+  const despesasPorMes = meses.map(m=> dados.filter(r=>r.tipo==='despesa' && r.data.slice(0,7)===m).reduce((s,r)=>s+r.valor,0));
+  const labelsMes = meses.map(m=>{
+    const [ano,mm] = m.split('-');
+    return nomesMes[parseInt(mm,10)-1].slice(0,3) + '/' + ano.slice(2);
+  });
+
+  if(chartColunas) chartColunas.destroy();
+  chartColunas = new Chart(document.getElementById('chartColunas'), {
+    type: 'bar',
+    data: {
+      labels: labelsMes,
+      datasets: [
+        { label: 'Receitas', data: receitasPorMes, backgroundColor: '#1F8A5A' },
+        { label: 'Despesas', data: despesasPorMes, backgroundColor: '#C0392B' }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } } }
+  });
+
+  // Despesas por categoria (pizza)
+  const despesas = dados.filter(r=>r.tipo==='despesa');
+  const catsDespesa = [...new Set(despesas.map(r=>r.categoria))];
+  const valoresDespesa = catsDespesa.map(c=> despesas.filter(r=>r.categoria===c).reduce((s,r)=>s+r.valor,0));
+
+  if(chartPizzaDespesa) chartPizzaDespesa.destroy();
+  chartPizzaDespesa = new Chart(document.getElementById('chartPizzaDespesa'), {
+    type: 'pie',
+    data: { labels: catsDespesa, datasets: [{ data: valoresDespesa, backgroundColor: CORES }] },
+    options: { responsive:true, maintainAspectRatio:false }
+  });
+
+}
+
+function formatarVariacao(atual, anterior){
+  if(anterior === 0){
+    if(atual === 0) return { texto:'—', cor:'#999' };
+    return { texto:'novo', cor:'var(--azul)' };
+  }
+  const pct = ((atual - anterior) / Math.abs(anterior)) * 100;
+  const sinal = pct > 0 ? '+' : '';
+  return { texto: `${sinal}${pct.toFixed(1)}%`, cor: pct >= 0 ? 'var(--verde)' : 'var(--vermelho)' };
+}
+
+function atualizarResumoMensal(dados){
+  const tbody = document.getElementById('listaResumoMensal');
+  const vazio = document.getElementById('vazioResumo');
+  tbody.innerHTML = '';
+
+  const meses = [...new Set(dados.map(r=>r.data.slice(0,7)))].sort();
+
+  if(meses.length === 0){ vazio.style.display = 'block'; }
+  else { vazio.style.display = 'none'; }
+
+  const porMes = {};
+  meses.forEach(m=>{
+    porMes[m] = {
+      receitas: dados.filter(r=>r.tipo==='receita' && r.data.slice(0,7)===m).reduce((s,r)=>s+r.valor,0),
+      despesas: dados.filter(r=>r.tipo==='despesa' && r.data.slice(0,7)===m).reduce((s,r)=>s+r.valor,0)
+    };
+  });
+
+  meses.forEach((m, idx)=>{
+    const { receitas: receitasMes, despesas: despesasMes } = porMes[m];
+    const saldoMes = receitasMes - despesasMes;
+    const [ano, mm] = m.split('-');
+    const nomeMes = nomesMes[parseInt(mm,10)-1];
+    const nomeCapitalizado = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+
+    let variacaoHtml = '<span style="color:#999;">—</span>';
+    if(idx > 0){
+      const anterior = porMes[meses[idx-1]];
+      const saldoAnterior = anterior.receitas - anterior.despesas;
+      const v = formatarVariacao(saldoMes, saldoAnterior);
+      variacaoHtml = `<span style="color:${v.cor};font-weight:600;">${v.texto}</span>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="Mês">${nomeCapitalizado} de ${ano}</td>
+      <td data-label="Receitas" style="text-align:right;color:var(--verde);">${fmt(receitasMes)}</td>
+      <td data-label="Despesas" style="text-align:right;color:var(--vermelho);">${fmt(despesasMes)}</td>
+      <td data-label="Saldo do mês" style="text-align:right;font-weight:700;color:${saldoMes>=0?'var(--verde)':'var(--vermelho)'};">${fmt(saldoMes)}</td>
+      <td data-label="Variação vs. mês anterior" style="text-align:right;">${variacaoHtml}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  atualizarCartoesVariacao(meses, porMes);
+}
+
+function atualizarCartoesVariacao(meses, porMes){
+  const painel = document.getElementById('variacaoVazio');
+  const wrapCards = document.querySelector('#painelVariacao .cards');
+  const label = document.getElementById('variacaoLabelMeses');
+
+  if(meses.length < 2){
+    painel.style.display = 'block';
+    wrapCards.style.display = 'none';
+    label.textContent = '';
+    return;
+  }
+  painel.style.display = 'none';
+  wrapCards.style.display = 'grid';
+
+  const mesAtual = meses[meses.length - 1];
+  const mesAnterior = meses[meses.length - 2];
+  const atual = porMes[mesAtual];
+  const anterior = porMes[mesAnterior];
+  const saldoAtual = atual.receitas - atual.despesas;
+  const saldoAnterior = anterior.receitas - anterior.despesas;
+
+  const nomeAtual = nomesMes[parseInt(mesAtual.split('-')[1],10)-1];
+  const nomeAnterior = nomesMes[parseInt(mesAnterior.split('-')[1],10)-1];
+  label.textContent = `(${nomeAtual} vs. ${nomeAnterior})`;
+
+  const vReceita = formatarVariacao(atual.receitas, anterior.receitas);
+  const vDespesa = formatarVariacao(atual.despesas, anterior.despesas);
+  const vSaldo = formatarVariacao(saldoAtual, saldoAnterior);
+
+  const elR = document.getElementById('variacaoReceita');
+  const elD = document.getElementById('variacaoDespesa');
+  const elS = document.getElementById('variacaoSaldo');
+  elR.textContent = vReceita.texto; elR.style.color = vReceita.cor;
+  elD.textContent = vDespesa.texto; elD.style.color = vDespesa.cor === 'var(--verde)' ? 'var(--vermelho)' : (vDespesa.cor === 'var(--vermelho)' ? 'var(--verde)' : vDespesa.cor);
+  elS.textContent = vSaldo.texto; elS.style.color = vSaldo.cor;
+}
+
+// ===== Simulador =====
+let simDesmarcados = new Set();
+
+function popularSimMes(){
+  const sel = document.getElementById('simMes');
+  const chaves = [...new Set(registros.map(r=>r.data.slice(0,7)))].sort().reverse();
+  const atual = sel.value;
+  sel.innerHTML = chaves.map(c=>{
+    const [ano, mm] = c.split('-');
+    const label = `${nomesMes[parseInt(mm,10)-1]} de ${ano}`;
+    return `<option value="${c}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+  if(chaves.includes(atual)){ sel.value = atual; }
+  else if(chaves.length){ sel.value = chaves[0]; }
+}
+
+function renderSimulador(){
+  const sel = document.getElementById('simMes');
+  const mes = sel.value;
+
+  const doMes = registros.filter(r=> r.data.slice(0,7) === mes);
+  const receitas = doMes.filter(r=>r.tipo==='receita').sort((a,b)=> new Date(b.data)-new Date(a.data));
+  const despesas = doMes.filter(r=>r.tipo==='despesa').sort((a,b)=> new Date(b.data)-new Date(a.data));
+
+  renderSimLista('simListaReceitas', 'simVazioReceitas', receitas, 'Nenhuma receita neste mês.');
+  renderSimLista('simListaDespesas', 'simVazioDespesas', despesas, 'Nenhuma despesa neste mês.');
+
+  const totReceita = receitas.filter(r=>!simDesmarcados.has(r.id)).reduce((s,r)=>s+r.valor,0);
+  const totDespesa = despesas.filter(r=>!simDesmarcados.has(r.id)).reduce((s,r)=>s+r.valor,0);
+  document.getElementById('simTotReceita').textContent = fmt(totReceita);
+  document.getElementById('simTotDespesa').textContent = fmt(totDespesa);
+  document.getElementById('simSaldo').textContent = fmt(totReceita - totDespesa);
+}
+
+function renderSimLista(containerId, vazioId, itens, msgVazio){
+  const container = document.getElementById(containerId);
+  const vazio = document.getElementById(vazioId);
+  container.innerHTML = '';
+
+  if(itens.length === 0){ vazio.textContent = msgVazio; vazio.style.display = 'block'; return; }
+  vazio.style.display = 'none';
+
+  itens.forEach(r=>{
+    const marcado = !simDesmarcados.has(r.id);
+    const dataFmt = new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR');
+    const div = document.createElement('div');
+    div.className = 'sim-item' + (marcado ? '' : ' desmarcado');
+    div.innerHTML = `
+      <input type="checkbox" data-id="${r.id}" ${marcado ? 'checked' : ''}>
+      <span class="sim-desc">${r.desc} <span class="sim-cat">· ${r.categoria || '—'} · ${dataFmt}</span></span>
+      <span class="sim-valor" style="color:${r.tipo==='receita'?'var(--verde)':'var(--vermelho)'};">${fmt(r.valor)}</span>
+    `;
+    container.appendChild(div);
+  });
+
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked){ simDesmarcados.delete(cb.dataset.id); }
+      else { simDesmarcados.add(cb.dataset.id); }
+      renderSimulador();
+    });
+  });
+}
+
+document.getElementById('simMes').addEventListener('change', renderSimulador);
+
+document.querySelectorAll('.side-btn[data-aba]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.side-btn[data-aba]').forEach(b=>b.classList.remove('ativa'));
+    document.querySelectorAll('.aba-conteudo').forEach(c=>c.style.display='none');
+    btn.classList.add('ativa');
+    document.getElementById('aba-' + btn.dataset.aba).style.display = 'block';
+    if(btn.dataset.aba === 'simulador'){ popularSimMes(); renderSimulador(); }
+    if(btn.dataset.aba === 'clientes' && mapaLeaflet){ setTimeout(()=>mapaLeaflet.invalidateSize(), 150); }
+  });
+});
+
+document.getElementById('btnGrupoFinanceiro').addEventListener('click', ()=>{
+  const submenu = document.getElementById('submenuFinanceiro');
+  const aberto = submenu.style.display !== 'none';
+  submenu.style.display = aberto ? 'none' : 'flex';
+  document.getElementById('btnGrupoFinanceiro').classList.toggle('aberto', !aberto);
+});
+
+const JANELA_RECORRENTE_MESES = 12; // quantos meses à frente ficam pré-gerados; renovado automaticamente a cada acesso
+
+function somarMeses(dataStr, n){
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  // mês/ano de destino, calculados sem depender do "dia" (evita overflow)
+  const totalMeses = (mes - 1) + n;
+  const anoDestino = ano + Math.floor(totalMeses / 12);
+  const mesDestino = ((totalMeses % 12) + 12) % 12; // 0-indexado
+  const ultimoDiaDoMes = new Date(anoDestino, mesDestino + 1, 0).getDate();
+  const diaFinal = Math.min(dia, ultimoDiaDoMes); // trava no último dia válido do mês (ex: 31 -> 28/29/30)
+  const y = anoDestino;
+  const m = String(mesDestino + 1).padStart(2,'0');
+  const dd = String(diaFinal).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+
+document.getElementById('recorrencia').addEventListener('change', ()=>{
+  const rec = document.getElementById('recorrencia').value;
+  document.getElementById('wrapQtd').style.display = rec === 'parcelado' ? 'block' : 'none';
+  document.getElementById('labelValor').textContent = rec === 'parcelado' ? 'Valor da parcela (R$)' : (rec === 'recorrente' ? 'Valor mensal (R$)' : 'Valor (R$)');
+});
+
+let exclusoesRecorrentes = new Set();
+
+async function carregarExclusoesRecorrentes(){
+  try{
+    const s = localStorage.getItem('exclusoes_recorrentes');
+    exclusoesRecorrentes = new Set(s ? JSON.parse(s) : []);
+  }catch(e){ exclusoesRecorrentes = new Set(); }
+}
+
+async function salvarExclusoesRecorrentes(){
+  try{ localStorage.setItem('exclusoes_recorrentes', JSON.stringify([...exclusoesRecorrentes])); }catch(e){}
+}
+
+async function estenderRecorrentes(){
+  const hojeMaisJanela = somarMeses(new Date().toISOString().slice(0,10), JANELA_RECORRENTE_MESES);
+  const series = {};
+  registros.filter(r=>r.serieId && r.recorrente).forEach(r=>{
+    if(!series[r.serieId] || r.data > series[r.serieId].data) series[r.serieId] = r;
+  });
+  const novos = [];
+  Object.values(series).forEach(ultimo=>{
+    let dataAtual = ultimo.data;
+    let i = 1;
+    while(somarMeses(dataAtual, 0) < hojeMaisJanela && i < 36){
+      const proxData = somarMeses(ultimo.data, i);
+      if(proxData > hojeMaisJanela) break;
+      const chaveExclusao = ultimo.serieId + '|' + proxData;
+      const jaExiste = registros.some(r=> r.serieId === ultimo.serieId && r.data === proxData);
+      const foiExcluidoDeProposito = exclusoesRecorrentes.has(chaveExclusao);
+      if(!jaExiste && !foiExcluidoDeProposito){
+        novos.push({
+          id: ultimo.serieId + '-' + proxData, serieId: ultimo.serieId, recorrente: true,
+          tipo: ultimo.tipo, categoria: ultimo.categoria, desc: ultimo.desc,
+          valor: ultimo.valor, data: proxData, pago: false
+        });
+      }
+      dataAtual = proxData;
+      i++;
+    }
+  });
+  if(novos.length){
+    registros.push(...novos);
+    await salvarLocal();
+    for(const reg of novos){ await enviarParaSheets(reg,'upsert'); }
+  }
+}
+
+document.getElementById('frm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const tipo = document.getElementById('tipo').value;
+  const categoria = document.getElementById('categoria').value;
+  if(categoria === '__nova__') return;
+  const desc = document.getElementById('desc').value.trim();
+  const valor = parseFloat(document.getElementById('valor').value);
+  const data = document.getElementById('data').value;
+  const clienteId = document.getElementById('lancCliente').value;
+  const recorrencia = document.getElementById('recorrencia').value;
+  const qtd = Math.max(2, parseInt(document.getElementById('qtdRepeticoes').value, 10) || 2);
+  if(!desc || isNaN(valor) || !data) return;
+
+  const novos = [];
+  const grupoId = Date.now().toString();
+
+  if(recorrencia === 'unico'){
+    novos.push({ id: grupoId, tipo, categoria, desc, valor, data, clienteId, pago:false });
+  } else if(recorrencia === 'recorrente'){
+    const hojeMaisJanela = somarMeses(new Date().toISOString().slice(0,10), JANELA_RECORRENTE_MESES);
+    let i = 0;
+    while(somarMeses(data, i) <= hojeMaisJanela){
+      novos.push({
+        id: grupoId + '-' + i, serieId: grupoId, recorrente: true,
+        tipo, categoria, desc, valor, data: somarMeses(data, i), clienteId, pago:false
+      });
+      i++;
+    }
+  } else if(recorrencia === 'parcelado'){
+    for(let i=0; i<qtd; i++){
+      novos.push({
+        id: grupoId + '-' + i, tipo, categoria,
+        desc: `${desc} (parcela ${i+1}/${qtd})`,
+        valor, data: somarMeses(data, i), clienteId, pago:false
+      });
+    }
+  }
+
+  registros.push(...novos);
+  await salvar();
+  for(const reg of novos){ await enviarParaSheets(reg,'upsert'); }
+  render();
+  e.target.reset();
+  popularCategoriasForm();
+  document.getElementById('data').valueAsDate = new Date();
+  document.getElementById('wrapQtd').style.display = 'none';
+  document.getElementById('labelValor').textContent = 'Valor (R$)';
+});
+
+document.getElementById('tipo').addEventListener('change', ()=>popularCategoriasForm());
+
+const nomesMes = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+function atualizarOpcoesMes(selecionado){
+  const sel = document.getElementById('filtroMes');
+  const chaves = [...new Set(registros.map(r=>r.data.slice(0,7)))].sort().reverse();
+  const atual = [...sel.options].map(o=>o.value).join(',');
+  const novo = ['todos', ...chaves].join(',');
+  if(atual === novo) return;
+
+  sel.innerHTML = '<option value="todos">Mês corrente</option>' + chaves.map(c=>{
+    const [ano,m] = c.split('-');
+    const label = `${nomesMes[parseInt(m,10)-1]} de ${ano}`;
+    return `<option value="${c}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+  sel.value = chaves.includes(selecionado) ? selecionado : 'todos';
+}
+
+function atualizarOpcoesCategoria(selecionado){
+  const sel = document.getElementById('filtroCategoria');
+  const chaves = [...new Set(registros.map(r=>r.categoria).filter(Boolean))].sort();
+  const atual = [...sel.options].map(o=>o.value).join(',');
+  const novo = ['todos', ...chaves].join(',');
+  if(atual === novo) return;
+
+  sel.innerHTML = '<option value="todos">Todas as categorias</option>' + chaves.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.value = chaves.includes(selecionado) ? selecionado : 'todos';
+}
+
+document.getElementById('filtroTipo').addEventListener('change', render);
+document.getElementById('filtroMes').addEventListener('change', render);
+document.getElementById('filtroStatus').addEventListener('change', render);
+document.getElementById('filtroCategoria').addEventListener('change', render);
+document.getElementById('filtroDataIni').addEventListener('change', render);
+document.getElementById('filtroDataFim').addEventListener('change', render);
+document.getElementById('limparPeriodo').addEventListener('click', ()=>{
+  document.getElementById('filtroDataIni').value = '';
+  document.getElementById('filtroDataFim').value = '';
+  document.getElementById('filtroMes').value = 'todos';
+  render();
+});
+
+document.getElementById('verHistoricoCompleto').addEventListener('click', ()=>{
+  document.getElementById('filtroMes').value = 'todos';
+  document.getElementById('filtroDataIni').value = '2000-01-01';
+  document.getElementById('filtroDataFim').value = '2100-12-31';
+  render();
+});
+
+document.getElementById('okPeriodoLanc').addEventListener('click', ()=>{
+  const ini = document.getElementById('lancDataIni').value;
+  const fim = document.getElementById('lancDataFim').value;
+  if(!ini && !fim){
+    periodoLancConfirmado = null;
+  } else {
+    periodoLancConfirmado = {
+      ini: ini || primeiroDiaMesAtual(),
+      fim: fim || ultimoDiaMesAtual()
+    };
+  }
+  render();
+});
+document.getElementById('limparPeriodoLanc').addEventListener('click', ()=>{
+  document.getElementById('lancDataIni').value = '';
+  document.getElementById('lancDataFim').value = '';
+  periodoLancConfirmado = null;
+  render();
+});
+
+// ===== Clientes =====
+let clientes = [];
+let editandoClienteId = null;
+
+const CLIENTES_IMPORTADOS = [{"id": "imp-1", "nome": "Antônio Nascimento Santos Júnior ME - Alfa Plan", "cpfCnpj": "34.344.615/0001-57", "telefone": "", "cidade": "Manoel Vitorino", "estado": "BA", "email": "antoniovendadeplano@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-2", "nome": "PASC ASSISTENCIA FAMILIAR LTDA", "cpfCnpj": "33.155.741/0001-09", "telefone": "(87) 99623-1012", "cidade": "Patos", "estado": "PB", "email": "mahilton.eja@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-3", "nome": "Vista Mar Hotel Business Ltda - Vista Mar Hotel 2", "cpfCnpj": "13.279.320/0001-74", "telefone": "", "cidade": "Maceió", "estado": "AL", "email": "financeiro@vistamarhotel.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-4", "nome": "Gestão de A&B e Hospitalidade Ltda - Vista Mar 1", "cpfCnpj": "67.846.940/0001-77", "telefone": "", "cidade": "Maceió", "estado": "AL", "email": "financeiro@vistamarhotel.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-5", "nome": "Villar Planos Ltda", "cpfCnpj": "52.594.293/0001-86", "telefone": "", "cidade": "Ribeira do Pombal", "estado": "BA", "email": "financeiro@villarce.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-6", "nome": "Funerária Monte Sião Ltda", "cpfCnpj": "31.846.687/0001-04", "telefone": "", "cidade": "Bom Jesus da Lapa", "estado": "BA", "email": "financeiro01.montesiao@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-7", "nome": "Cemitério Bosque da Paz de Itapetinga Ltda", "cpfCnpj": "05.298.152/0001-36", "telefone": "", "cidade": "Itapetinga", "estado": "BA", "email": "paxperfeicaojm@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-8", "nome": "Farmácia Mais Barato Macaúbas Ltda", "cpfCnpj": "02.575.394/0001-31", "telefone": "", "cidade": "Macaúbas", "estado": "BA", "email": "farmaciabigfarmamac@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-9", "nome": "Luiz Carlos da Silva Almeida -  Pax Regional", "cpfCnpj": "06.220.405/0001-11", "telefone": "(77) 99944-2714", "cidade": "Macaúbas", "estado": "BA", "email": "mahilton.eja@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-10", "nome": "GS Rosa dos Santos ME - Memorial Esperança", "cpfCnpj": "20.086.075/0001-44", "telefone": "", "cidade": "Paulo Afonso", "estado": "BA", "email": "planoesperanca@outlook.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-11", "nome": "Felipe Caire S Cavalcante", "cpfCnpj": "044.858.513-89", "telefone": "", "cidade": "", "estado": "", "email": "", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-12", "nome": "Plano Familiar Campo do Bosque  Ltda", "cpfCnpj": "51.121.484/0001-68", "telefone": "", "cidade": "Salvador", "estado": "BA", "email": "pfcampodobosque@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-13", "nome": "F C L CARNEIRO SERVICOS FUNERARIOS LTDA - Funerária Esperança", "cpfCnpj": "07.057.745/0001-36", "telefone": "", "cidade": "Fortaleza", "estado": "CE", "email": "f.esperanca@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-14", "nome": "Rede Vita Benefícios Integrados Ltda", "cpfCnpj": "67.727.482/0001-57", "telefone": "", "cidade": "Maceió", "estado": "AL", "email": "rehnya.n@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-15", "nome": "Pax Santa Inês Serviços Ltda", "cpfCnpj": "23.609.761/0001-40", "telefone": "", "cidade": "Santa Inês", "estado": "MA", "email": "fpaxsi@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-16", "nome": "Anderson Nicacio de Souza Serviços Funerários-PAAF", "cpfCnpj": "59.178.788/0001-73", "telefone": "", "cidade": "Mirandiba", "estado": "PE", "email": "grupo.paaf.arcanjos@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-17", "nome": "Maria Aparecida Pereira Lima ME - Funerária Pax Perfeição", "cpfCnpj": "10.888.389/0001-07", "telefone": "", "cidade": "Itapé", "estado": "BA", "email": "cidapereira5@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-18", "nome": "Funerária Cristo Rei Ltda", "cpfCnpj": "16.869.412/0001-00", "telefone": "", "cidade": "Água Azul do Norte", "estado": "PA", "email": "mahilton8@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-19", "nome": "Santer Serviços Funerários Ltda", "cpfCnpj": "01.637.799/0001-94", "telefone": "", "cidade": "Maranguape", "estado": "CE", "email": "fstcontato@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-20", "nome": "Funerária Nova Aliança Serviços Póstumos Ltda", "cpfCnpj": "11.349.152/0001-10", "telefone": "", "cidade": "Patrocínio", "estado": "MG", "email": "funerarianovaalianca2020@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-21", "nome": "São Gabriel Benefícios Ltda", "cpfCnpj": "55.590.999/0001-68", "telefone": "", "cidade": "Rio Negrinho", "estado": "SC", "email": "financeiro@planosaogabriel.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-22", "nome": "SAFE - Serviços de Assistência a Família Enlutada Ltda", "cpfCnpj": "60.187.302/0001-42", "telefone": "", "cidade": "Salvador", "estado": "BA", "email": "alissonrocha1981@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-23", "nome": "MARTINS COMERCIO E SERVICOS FUNERARIOS LTDA", "cpfCnpj": "08.322.447/0001-99", "telefone": "", "cidade": "Dias d'Ávila", "estado": "BA", "email": "sanmatheusfuneraria@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-24", "nome": "CENTRAL GESTAO DE BENEFICIOS LTDA", "cpfCnpj": "65.848.109/0001-29", "telefone": "", "cidade": "São José de Mipibu", "estado": "RN", "email": "realizecorretoradesaude@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-25", "nome": "Bruno Cesar Matias Teixeira", "cpfCnpj": "04.346.308/0001-44", "telefone": "", "cidade": "Caruaru", "estado": "PE", "email": "wellingtonsfr@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-26", "nome": "JOSE LIBERATO BRITO", "cpfCnpj": "03.275.749/0001-30", "telefone": "", "cidade": "Macaparana", "estado": "PE", "email": "girassolmaster35@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-27", "nome": "PLASF CENTROPAX DO BRASIL LTDA", "cpfCnpj": "09.163.170/0001-61", "telefone": "", "cidade": "Marabá", "estado": "PA", "email": "funerariacentropaxdobrasilmab@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-28", "nome": "Pax Novo Horizonte Ltda", "cpfCnpj": "27.597.627/0001-28", "telefone": "", "cidade": "São Luís", "estado": "MA", "email": "pax.novohorizonte@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-29", "nome": "PLAFAMP PLANO DE ASSISTENCIA A FAMILIA MODERNA DO PAJEU LTDA", "cpfCnpj": "10.588.917/0001-02", "telefone": "", "cidade": "Afogados da Ingazeira", "estado": "PE", "email": "wellingtonsfr@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-30", "nome": "RDB ADMINISTRACAO DE CEMITERIO UNIPESSOAL LTDA", "cpfCnpj": "27.916.842/0001-44", "telefone": "", "cidade": "Chapadinha", "estado": "MA", "email": "admjardimdosossego@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-31", "nome": "CATARINA SERVICOS FUNERARIOS LTDA", "cpfCnpj": "47.252.375/0001-02", "telefone": "(88) 98846-7726", "cidade": "Catarina", "estado": "CE", "email": "wellingtonsfr@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-32", "nome": "Itatex Industria e Conercio de Produtos Texteis LTDA", "cpfCnpj": "01.136.386/0001-26", "telefone": "", "cidade": "Itaporanga", "estado": "PB", "email": "financeiro@itatextextil.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-33", "nome": "VIANA VIANA FUNERARIA", "cpfCnpj": "03.933.237/0001-13", "telefone": "", "cidade": "Manaus", "estado": "AM", "email": "financeiro.viana.viana@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-34", "nome": "PLAMAF UNIAO ADMINISTRADORA DE SERVICOS POSTUMO LTDA", "cpfCnpj": "18.678.852/0001-06", "telefone": "", "cidade": "Elói Mendes", "estado": "MG", "email": "plamafuniao@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-35", "nome": "PULSAR CENTRO MEDICO E DIAGNOSTICOS LTDA", "cpfCnpj": "63.919.208/0001-29", "telefone": "", "cidade": "Itapuranga", "estado": "GO", "email": "leonardo@laboratoriopulsar.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-36", "nome": "ALPHAMED SERVICOS DE SAUDE LTDA", "cpfCnpj": "58.372.539/0001-51", "telefone": "", "cidade": "Porto Velho", "estado": "RO", "email": "comunicacao@alphaclin.net.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-37", "nome": "ASSESSORIA EM CONTRATACAO DE PLANOS DE SAUDE PARA SERVIDORES PUBLICOS LTDA - INNOV", "cpfCnpj": "50.976.390/0001-08", "telefone": "", "cidade": "Natal", "estado": "RN", "email": "luizfelipe@bezerracorretora.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-38", "nome": "Cartao Ok Servi", "cpfCnpj": "34.905.187/0001-94", "telefone": "", "cidade": "", "estado": "", "email": "", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-39", "nome": "SAUDE CONECT LTDA", "cpfCnpj": "58.982.093/0001-87", "telefone": "", "cidade": "Mossoró", "estado": "RN", "email": "financeiro@saudeconectbr.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-40", "nome": "PLANO ASSISTENCIAL FAMILIAR MONTE PARA", "cpfCnpj": "07.766.993/0001-56", "telefone": "", "cidade": "Dom Pedro", "estado": "MA", "email": "montepara@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-41", "nome": "CARON E KASSIA SERVICOS FUNERARIOS LTDA", "cpfCnpj": "51.491.178/0001-13", "telefone": "", "cidade": "Imperatriz", "estado": "MA", "email": "perpetuosocorroiptz@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-42", "nome": "J DIVINO DE QUEIROZ LTDA - BAHIA PAX", "cpfCnpj": "17.900.265/0001-49", "telefone": "", "cidade": "Irecê", "estado": "BA", "email": "funerariabahiapax@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-43", "nome": "DISTRIBUIDORA FILGUEIRA DE BEBIDAS LTDA", "cpfCnpj": "05.342.354/0001-38", "telefone": "", "cidade": "Itapecuru Mirim", "estado": "MA", "email": "aurea-fn@grupomarreca.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-44", "nome": "MARILENE SANTOS DA SILVA - PAX SAO BENTO", "cpfCnpj": "24.658.769/0001-60", "telefone": "", "cidade": "Barra do Corda", "estado": "MA", "email": "marileneglamour2@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-45", "nome": "LAR ETERNO SERVICOS FUNEBRES E POSTUMOS LTDA", "cpfCnpj": "74.098.088/0001-62", "telefone": "", "cidade": "São Luís", "estado": "MA", "email": "jccontbma@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-46", "nome": "B PORTO BRANDAO - PAX SAO LUIZ", "cpfCnpj": "23.432.021/0001-81", "telefone": "", "cidade": "São José de Ribamar", "estado": "MA", "email": "comercialpaxsaoluis@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-47", "nome": "Alphamed Serviços de Saúde Ltda - Cartão Gente Boa", "cpfCnpj": "58.372.539/0001-51", "telefone": "", "cidade": "Porto Velho", "estado": "RO", "email": "comunicacao@alphaclin.net.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-48", "nome": "C2 SISTEMAS E INOVACAO", "cpfCnpj": "13.424.421/0001-91", "telefone": "", "cidade": "Maceió", "estado": "AL", "email": "financeiro@c2sistemas.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-49", "nome": "JR SOLUCOES VISUAIS", "cpfCnpj": "15.689.756/0001-67", "telefone": "(83) 3441-1621", "cidade": "Catolé do Rocha", "estado": "PB", "email": "jrsolucoesvisuais.adm@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-50", "nome": "REUNIDAS MATERIAL DE CONSTRUCAO", "cpfCnpj": "09.534.458/0001-03", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "reunidasrh@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-51", "nome": "ASPEB ADMINISTRADORA E AGENCIADORA DE BENEFICIOS LTDA", "cpfCnpj": "34.889.238/0001-31", "telefone": "", "cidade": "Belém", "estado": "PA", "email": "financeiro@aspeb.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-52", "nome": "INSTITUTO SAUDE DA AMAZONIA", "cpfCnpj": "50.750.071/0001-80", "telefone": "", "cidade": "Belém", "estado": "PA", "email": "top67comunicacoes@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-53", "nome": "ALSOL TELECOM SERVICOS DE INTERNET LTDA", "cpfCnpj": "17.573.476/0001-14", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "eletronsat@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-54", "nome": "ADEF ATACADO LTDA", "cpfCnpj": "43.536.815/0001-00", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "financeiro@adefatacado.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-55", "nome": "REAL - INDUSTRIA E COMERCIO DE ALUMINIO LTDA", "cpfCnpj": "05.929.519/0001-72", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "laminorpb@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-56", "nome": "LUZ INDUSTRIA DE ALUMINIO LTDA", "cpfCnpj": "27.805.256/0001-22", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "financeiro@luzindustria.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-57", "nome": "LAMINOR - LAMINACAO DE ALUMINIO NORDESTE LTDA", "cpfCnpj": "04.723.571/0001-05", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "laminorpb@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-58", "nome": "DARIO ATACADO CASA DO TRIGO", "cpfCnpj": "34.221.948/0001-99", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "xanda_d33@yahoo.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-59", "nome": "L&F MAIA SERVICOS", "cpfCnpj": "43.735.913/0001-69", "telefone": "", "cidade": "São Bento", "estado": "PB", "email": "lfmaiaservicos@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-60", "nome": "GRANCONT LTDA", "cpfCnpj": "43.591.345/0001-70", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "grancontsc@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-61", "nome": "BR CLIN", "cpfCnpj": "32.607.492/0001-74", "telefone": "", "cidade": "Macapá", "estado": "AP", "email": "brclinmacapa@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-62", "nome": "A.A.J & L. - CLINICAS ODONTOLOGICAS LTDA COIFE ODONTO", "cpfCnpj": "21.950.065/0001-78", "telefone": "", "cidade": "Macapá", "estado": "AP", "email": "dentarysmacapa@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-63", "nome": "MAURO VANDSON DOS SANTOS PANTOJA 03369338270", "cpfCnpj": "35.714.848/0001-67", "telefone": "", "cidade": "Macapá", "estado": "AP", "email": "centralprospecta@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-64", "nome": "JOBSON LUIS MELO DE NEGREIROS LTDA - TURBONET", "cpfCnpj": "08.853.084/0001-18", "telefone": "", "cidade": "Taquaritinga do Norte", "estado": "PE", "email": "mariliahelena0@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-65", "nome": "M A POLETO DO CARMO - TURBONET TELECOM", "cpfCnpj": "08.939.534/0001-90", "telefone": "", "cidade": "Santa Cruz do Capibaribe", "estado": "PE", "email": "turbonetsantacruz@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-66", "nome": "TURBONET PROVEDOR DE INTERNET LTDA - TURBONET TELECOM", "cpfCnpj": "17.578.752/0001-37", "telefone": "", "cidade": "Toritama", "estado": "PE", "email": "turbonetsantacruz@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-67", "nome": "J M PROVEDOR DE INTERNET LTDA - TURBONET FIBRA", "cpfCnpj": "41.084.790/0001-18", "telefone": "", "cidade": "Surubim", "estado": "PE", "email": "turbonetsantacruz@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-68", "nome": "PATRICIA FRANCIELI SILVA ALVES", "cpfCnpj": "106.883.596-63", "telefone": "", "cidade": "Sorriso", "estado": "MT", "email": "pp.odontologia93@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-69", "nome": "CARDOSO E CAMPOS LAVANDERIA LTDA", "cpfCnpj": "41.481.422/0001-03", "telefone": "", "cidade": "Belém", "estado": "PA", "email": "belem.01@elavlavanderia.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-70", "nome": "LABORATORIO CENTRAL DE CAMETA", "cpfCnpj": "33.582.975/0001-24", "telefone": "", "cidade": "Cametá", "estado": "PA", "email": "labcentralcameta@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-71", "nome": "wellington dos santos farias", "cpfCnpj": "059.649.044-59", "telefone": "(83) 99654-2383", "cidade": "João Pessoa", "estado": "PB", "email": "admoksaude@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-72", "nome": "ORGANIZACOES SIMONI DE IMOVEIS LTDA", "cpfCnpj": "02.329.161/0001-59", "telefone": "", "cidade": "Medianeira", "estado": "PR", "email": "contabilidadesimoni@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-73", "nome": "ORTODOCTOR UND ADM", "cpfCnpj": "23.808.162/0001-56", "telefone": "", "cidade": "Medianeira", "estado": "PR", "email": "leandro@ortodoctor.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-74", "nome": "ORTODOCTOR SAO FRANCISCO DO SUL", "cpfCnpj": "", "telefone": "", "cidade": "São Francisco do Sul", "estado": "SC", "email": "ortodoctorsaofranciscodosul@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-75", "nome": "CLINICA ODONTOLOGICA HEINZ LTDA - PALOTINA", "cpfCnpj": "39.809.433/0001-28", "telefone": "", "cidade": "Palotina", "estado": "PR", "email": "ortodoctorpalotina@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-76", "nome": "ODONTOESTE - MARECHAL CANDIDO RONDON", "cpfCnpj": "04.790.984/0003-74", "telefone": "", "cidade": "Marechal Cândido Rondon", "estado": "PR", "email": "odontoeste_rondon@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-77", "nome": "ORTHO ASSIST ASSESSORIA - SANTANA", "cpfCnpj": "26.682.891/0001-05", "telefone": "", "cidade": "São Paulo", "estado": "SP", "email": "ortodoctorsantanaipeo@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-78", "nome": "ORTODOCTOR RESENDE", "cpfCnpj": "43.197.024/0001-95", "telefone": "", "cidade": "Resende", "estado": "RJ", "email": "ortodoctorresende@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-79", "nome": "Mahilton", "cpfCnpj": "073.979.364-07", "telefone": "(83) 99672-4746", "cidade": "", "estado": "", "email": "mahilton.eja@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-80", "nome": "Priscylla do nascime to silva", "cpfCnpj": "086.198.544-37", "telefone": "", "cidade": "", "estado": "", "email": "", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-81", "nome": "HD ENXOVAIS LTDA", "cpfCnpj": "41.070.631/0001-64", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "inovar.assessoriacatole@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-82", "nome": "COMERCIAL VITORIA HORTI LTDA", "cpfCnpj": "29.820.274/0001-09", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-83", "nome": "JB COMERCIO E DISTRIBUIDORA DE ALIMENTOS LTDA", "cpfCnpj": "33.440.664/0001-20", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-84", "nome": "PANIFICADORA TODO DIA LTDA", "cpfCnpj": "20.507.425/0001-07", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-85", "nome": "JJ GONCALVES SERVICOS LTDA", "cpfCnpj": "20.276.042/0001-67", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-86", "nome": "RENOVAR M F T ANDRADE LTDA", "cpfCnpj": "48.358.056/0001-49", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-87", "nome": "RENASCER J W GALVAO MENDES LTDA", "cpfCnpj": "48.358.572/0001-73", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-88", "nome": "INOVAR M F T DE ANDRADE LTDA", "cpfCnpj": "03.317.017/0001-65", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-89", "nome": "PHOENIX J W GALVAO MENDES LTDA", "cpfCnpj": "30.193.938/0001-36", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-90", "nome": "DO DIA SUPERMERCADOS LTDA", "cpfCnpj": "08.637.640/0001-19", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "tododiafinanceiro@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-91", "nome": "POSTO DE COMBUSTIVEL SANTA TEREZINHA LTDA", "cpfCnpj": "03.923.742/0001-87", "telefone": "", "cidade": "Itapororoca", "estado": "PB", "email": "fiscalpostotavares@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-92", "nome": "SUPERMERCADO TAVARES LTDA", "cpfCnpj": "07.956.944/0001-86", "telefone": "", "cidade": "Itapororoca", "estado": "PB", "email": "financeiroirmaostavares@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-93", "nome": "TAVARES ALIMENTOS LTDA", "cpfCnpj": "41.001.324/0001-21", "telefone": "", "cidade": "Itapororoca", "estado": "PB", "email": "financeiroirmaostavares@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-94", "nome": "EFICIENTE PRESTADORA DE SERVICOS LTDA", "cpfCnpj": "35.604.299/0001-78", "telefone": "", "cidade": "Catolé do Rocha", "estado": "PB", "email": "rheficientejp@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-95", "nome": "DELICIA DE PAO PADARIA E CONFEITARIA LTDA", "cpfCnpj": "35.783.913/0001-06", "telefone": "", "cidade": "João Pessoa", "estado": "PB", "email": "mariagoretepadaria@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-96", "nome": "RESTAURANTE SABOREAR LTDA", "cpfCnpj": "35.759.773/0001-30", "telefone": "", "cidade": "João Pessoa", "estado": "PB", "email": "rhsabordodia@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-97", "nome": "MAIS DODIA SUPERMERCADOS LTDA", "cpfCnpj": "32.470.000/0001-41", "telefone": "", "cidade": "João Pessoa", "estado": "PB", "email": "rhmaisdodia@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-98", "nome": "F2L SARAIVA SERVICOS LTDA", "cpfCnpj": "40.482.482/0001-88", "telefone": "", "cidade": "João Pessoa", "estado": "PB", "email": "f2lsaraiva@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-99", "nome": "MAX DOMINI SERVICOS POSTUMOS LTDA", "cpfCnpj": "04.831.574/0001-62", "telefone": "", "cidade": "Belém", "estado": "PA", "email": "max.financeiro@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-100", "nome": "REAL SUPERMERCADO COMERCIO VAREJISTA DE ALIMENTOS LTDA", "cpfCnpj": "05.000.478/0004-88", "telefone": "(83) 98175-9643", "cidade": "Guarabira", "estado": "PB", "email": "rps.realguarabira@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-101", "nome": "REAL SUPERMERCADO COMERCIO VAREJISTA DE ALIMENTOS LTDA", "cpfCnpj": "05.000.478/0003-05", "telefone": "(83) 98175-9643", "cidade": "Guarabira", "estado": "PB", "email": "rps.realguarabira@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-102", "nome": "REAL SUPERMERCADO COMERCIO VAREJISTA DE ALIMENTOS LTDA", "cpfCnpj": "05.000.478/0002-16", "telefone": "(83) 98175-9643", "cidade": "Guarabira", "estado": "PB", "email": "rps.realguarabira@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-103", "nome": "REAL SUPERMERCADO COMERCIO VAREJISTA DE ALIMENTOS LTDA", "cpfCnpj": "05.000.478/0001-35", "telefone": "(83) 98175-9643", "cidade": "Cabedelo", "estado": "PB", "email": "rps.realguarabira@hotmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-104", "nome": "CONCEITO CONTABILIDADE E CONSULTORIA LTDA", "cpfCnpj": "08.582.621/0001-32", "telefone": "(91) 98209-5063", "cidade": "Belém", "estado": "PA", "email": "fiscal@conceitocontab.com.br", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-105", "nome": "MATOS E MATOS MODA LTDA", "cpfCnpj": "40.911.210/0001-56", "telefone": "(83) 66999-7275", "cidade": "Barra do Garças", "estado": "MT", "email": "matosematosloja@outlook.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-106", "nome": "ITAFARMA LTDA", "cpfCnpj": "11.515.713/0001-04", "telefone": "(83) 98713-3349", "cidade": "Itapororoca", "estado": "PB", "email": "diretoriaitafarma@gmail.com", "contatoFinanceiro": "", "obs": ""}, {"id": "imp-107", "nome": "MAHILTON SILVA DE ASSIS", "cpfCnpj": "073.979.364-07", "telefone": "(83) 99672-4746", "cidade": "Bayeux", "estado": "PB", "email": "mahilton.eja@gmail.com", "contatoFinanceiro": "", "obs": ""}];
+
+async function carregarClientes(){
+  try{
+    const c = localStorage.getItem('clientes');
+    clientes = c ? JSON.parse(c) : [];
+  }catch(e){ clientes = []; }
+
+  if(webhookUrl){ await carregarClientesDoSheets(); }
+
+  if(clientes.length === 0 && !localStorage.getItem('clientes_importados_v2')){
+    clientes = JSON.parse(JSON.stringify(CLIENTES_IMPORTADOS));
+    await salvarClientes();
+    try{ localStorage.setItem('clientes_importados_v2', '1'); }catch(e){}
+    if(webhookUrl){
+      for(const c of clientes){ await enviarParaSheets(c, 'upsert', 'cliente'); }
+    }
+  }
+}
+
+async function salvarClientes(){
+  try{ localStorage.setItem('clientes', JSON.stringify(clientes)); }catch(e){}
+}
+
+const NOMES_ESTADOS = {
+  AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará',
+  DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso',
+  MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná',
+  PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte',
+  RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina',
+  SP:'São Paulo', SE:'Sergipe', TO:'Tocantins'
+};
+
+const ESTADO_COORDS = {
+  AC:[-9.97,-67.8], AL:[-9.65,-35.7], AP:[0.03,-51.05], AM:[-3.1,-60.0],
+  BA:[-12.97,-38.5], CE:[-3.71,-38.5], DF:[-15.78,-47.9], ES:[-20.32,-40.3],
+  GO:[-16.68,-49.25], MA:[-2.53,-44.3], MT:[-15.6,-56.1], MS:[-20.44,-54.6],
+  MG:[-19.92,-43.9], PA:[-1.46,-48.5], PB:[-7.12,-34.86], PR:[-25.43,-49.27],
+  PE:[-8.05,-34.9], PI:[-5.09,-42.8], RJ:[-22.9,-43.2], RN:[-5.79,-35.2],
+  RS:[-30.03,-51.2], RO:[-8.76,-63.9], RR:[2.82,-60.67], SC:[-27.6,-48.55],
+  SP:[-23.55,-46.63], SE:[-10.91,-37.07], TO:[-10.25,-48.25]
+};
+
+// Coordenadas aproximadas por cidade (chave: "Cidade|UF"). Cidades fora dessa lista usam o centro do estado.
+const CIDADE_COORDS = {"Catolé do Rocha|PB": [-6.343, -37.747], "Belém|PA": [-1.455, -48.49], "João Pessoa|PB": [-7.115, -34.863], "Maceió|AL": [-9.649, -35.708], "Itapororoca|PB": [-6.836, -35.246], "Macapá|AP": [0.034, -51.07], "Guarabira|PB": [-6.855, -35.491], "Macaúbas|BA": [-13.012, -42.696], "Salvador|BA": [-12.971, -38.501], "São Luís|MA": [-2.529, -44.303], "Porto Velho|RO": [-8.762, -63.904], "Medianeira|PR": [-25.295, -54.094], "Manoel Vitorino|BA": [-14.183, -40.474], "Patos|PB": [-7.021, -37.28], "Ribeira do Pombal|BA": [-10.836, -38.535], "Bom Jesus da Lapa|BA": [-13.255, -43.418], "Itapetinga|BA": [-15.251, -40.251], "Paulo Afonso|BA": [-9.398, -38.208], "Fortaleza|CE": [-3.717, -38.543], "Santa Inês|MA": [-3.666, -45.378], "Mirandiba|PE": [-8.163, -38.883], "Itapé|BA": [-14.919, -39.427], "Água Azul do Norte|PA": [-6.688, -50.478], "Maranguape|CE": [-3.891, -38.684], "Patrocínio|MG": [-18.943, -46.993], "Rio Negrinho|SC": [-26.257, -49.517], "Dias d'Ávila|BA": [-12.603, -38.3], "São José de Mipibu|RN": [-6.075, -35.239], "Caruaru|PE": [-8.284, -35.976], "Macaparana|PE": [-7.564, -35.48], "Marabá|PA": [-5.368, -49.117], "Afogados da Ingazeira|PE": [-7.75, -37.636], "Chapadinha|MA": [-3.741, -43.36], "Catarina|CE": [-6.929, -39.276], "Itaporanga|PB": [-7.3, -38.155], "Manaus|AM": [-3.119, -60.021], "Elói Mendes|MG": [-21.611, -45.611], "Itapuranga|GO": [-15.562, -49.951], "Natal|RN": [-5.793, -35.211], "Mossoró|RN": [-5.187, -37.344], "Dom Pedro|MA": [-4.999, -44.451], "Imperatriz|MA": [-5.526, -47.491], "Irecê|BA": [-11.304, -41.856], "Itapecuru Mirim|MA": [-3.393, -44.359], "Barra do Corda|MA": [-5.505, -45.245], "São José de Ribamar|MA": [-2.56, -44.053], "São Bento|PB": [-6.484, -37.435], "Taquaritinga do Norte|PE": [-7.933, -36.075], "Santa Cruz do Capibaribe|PE": [-7.955, -36.204], "Toritama|PE": [-7.985, -36.038], "Surubim|PE": [-7.833, -35.755], "Sorriso|MT": [-12.545, -55.721], "Cametá|PA": [-2.244, -49.495], "São Francisco do Sul|SC": [-26.243, -48.638], "Palotina|PR": [-24.283, -53.84], "Marechal Cândido Rondon|PR": [-24.556, -54.055], "São Paulo|SP": [-23.55, -46.633], "Resende|RJ": [-22.469, -44.446], "Cabedelo|PB": [-6.981, -34.831], "Barra do Garças|MT": [-15.89, -52.256], "Bayeux|PB": [-7.126, -34.931]};
+
+let filtroStatusCliente = 'todos';
+let mapaLeaflet = null;
+let mapaMarkers = [];
+let chartParticipacao = null;
+
+function clientesFiltradosPorStatus(){
+  if(filtroStatusCliente === 'todos') return clientes;
+  return clientes.filter(c => (c.ativo==='nao'?'nao':'sim') === filtroStatusCliente);
+}
+
+function coordDoCliente(c){
+  const cidade = (c.cidade||'').trim();
+  const uf = (c.estado||'').trim().toUpperCase();
+  if(!uf || !ESTADO_COORDS[uf]) return null;
+  const chave = cidade + '|' + uf;
+  if(cidade && CIDADE_COORDS[chave]) return { lat: CIDADE_COORDS[chave][0], lng: CIDADE_COORDS[chave][1], local: cidade + '/' + uf, uf };
+  return { lat: ESTADO_COORDS[uf][0], lng: ESTADO_COORDS[uf][1], local: uf, uf };
+}
+
+function renderMapaBrasil(){
+  const mapaDiv = document.getElementById('mapaBrasilReal');
+  if(!mapaDiv) return;
+
+  const base = clientesFiltradosPorStatus();
+
+  // contagem por ESTADO (para os cartões de cobertura e o gráfico)
+  const contagemPorEstado = {};
+  base.forEach(c=>{
+    const uf = (c.estado||'').trim().toUpperCase();
+    if(!uf || !ESTADO_COORDS[uf]) return;
+    contagemPorEstado[uf] = (contagemPorEstado[uf]||0)+1;
+  });
+
+  const estadosComCliente = Object.keys(contagemPorEstado).length;
+  const totalConsiderado = Object.values(contagemPorEstado).reduce((s,n)=>s+n,0);
+  document.getElementById('mapaContEstados').textContent = `${estadosComCliente} de 27`;
+  document.getElementById('mapaPercEstados').textContent = `${Math.round(estadosComCliente/27*100)}%`;
+  document.getElementById('mapaContClientes').textContent = totalConsiderado;
+
+  atualizarGraficoParticipacaoEstados(contagemPorEstado);
+
+  if(typeof L === 'undefined') return;
+
+  if(!mapaLeaflet){
+    mapaLeaflet = L.map('mapaBrasilReal', { scrollWheelZoom:true }).setView([-14.5,-51.9], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
+    }).addTo(mapaLeaflet);
+  }
+
+  mapaMarkers.forEach(m=>mapaLeaflet.removeLayer(m));
+  mapaMarkers = [];
+
+  // agrupar clientes por CIDADE (chave "cidade|uf") para as marcações do mapa
+  const grupos = {};
+  base.forEach(c=>{
+    const pos = coordDoCliente(c);
+    if(!pos) return;
+    const chave = pos.local + '|' + pos.lat + ',' + pos.lng;
+    if(!grupos[chave]) grupos[chave] = { ...pos, clientes: [] };
+    grupos[chave].clientes.push(c);
+  });
+
+  const valoresGrupos = Object.values(grupos).map(g=>g.clientes.length);
+  const maxQtd = Math.max(1, ...valoresGrupos, 1);
+
+  Object.values(grupos).forEach(grupo=>{
+    const qtd = grupo.clientes.length;
+    const raio = 7 + (qtd/maxQtd)*18;
+    const marker = L.circleMarker([grupo.lat, grupo.lng], {
+      radius: raio, fillColor: '#FFC400', color:'#1B2A4A', weight:2, fillOpacity:0.85
+    }).addTo(mapaLeaflet);
+
+    const nomesPreview = grupo.clientes.slice(0,5).map(c=>`<div style="font-size:12px;padding:2px 0;">${c.nome}</div>`).join('');
+    const idGrupo = grupo.local.replace(/[^a-zA-Z0-9]/g,'_');
+    const popupHtml = `
+      <div class="popup-estado-titulo">${grupo.local}</div>
+      <div style="font-size:12px;color:#666;margin-bottom:6px;">${qtd} cliente(s)</div>
+      ${nomesPreview}
+      ${grupo.clientes.length>5 ? `<div style="font-size:11px;color:#999;">+${grupo.clientes.length-5} outro(s)</div>` : ''}
+      <div class="popup-estado-link" data-grupo="${idGrupo}">Ver lista completa ▸</div>
+    `;
+    marker.bindPopup(popupHtml);
+    marker.on('popupopen', (e)=>{
+      const el = e.popup.getElement();
+      const link = el.querySelector('.popup-estado-link');
+      if(link){ link.addEventListener('click', ()=> mostrarClientesDoLocal(grupo.local, grupo.clientes)); }
+    });
+    mapaMarkers.push(marker);
+  });
+
+  setTimeout(()=>{ if(mapaLeaflet) mapaLeaflet.invalidateSize(); }, 200);
+}
+
+function mostrarClientesDoLocal(local, listaClientesLocal){
+  const painel = document.getElementById('painelClientesEstado');
+  const titulo = document.getElementById('tituloClientesEstado');
+  const lista = document.getElementById('listaClientesEstado');
+  const ordenada = [...listaClientesLocal].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+
+  titulo.textContent = `Clientes em ${local} (${ordenada.length})`;
+  lista.innerHTML = ordenada.map(c=>`
+    <div class="cliente-estado-item">
+      <span class="nome">${c.nome}</span>
+      <span class="badge-status ${c.ativo==='nao'?'nao':'sim'}">${c.ativo==='nao'?'Inativo':'Ativo'}</span>
+    </div>
+  `).join('') || '<div class="empty">Nenhum cliente encontrado.</div>';
+  painel.style.display = 'block';
+  if(typeof painel.scrollIntoView === 'function'){ painel.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+
+function atualizarGraficoParticipacaoEstados(contagemPorEstado){
+  if(typeof Chart === 'undefined') return;
+  const entradas = Object.entries(contagemPorEstado).sort((a,b)=>b[1]-a[1]);
+  const labels = entradas.map(([uf])=>uf);
+  const valores = entradas.map(([,q])=>q);
+  const total = valores.reduce((s,v)=>s+v,0) || 1;
+  const percentuais = valores.map(v=> Math.round(v/total*1000)/10);
+
+  if(chartParticipacao) chartParticipacao.destroy();
+  const canvas = document.getElementById('chartParticipacaoEstados');
+  if(!canvas) return;
+  chartParticipacao = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'% de participação', data: percentuais, backgroundColor: CORES }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ tooltip:{ callbacks:{ label: (ctx)=> `${ctx.parsed.y}% (${valores[ctx.dataIndex]} cliente(s))` } } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:(v)=>v+'%' } } }
+    }
+  });
+}
+
+function filtrarTabelaClientesPorEstado(){
+  const tbody = document.getElementById('listaClientes');
+  if(!tbody) return;
+  [...tbody.querySelectorAll('tr')].forEach(tr=>{
+    const passaStatus = filtroStatusCliente === 'todos' || tr.dataset.ativo === filtroStatusCliente;
+    tr.style.display = passaStatus ? '' : 'none';
+  });
+}
+
+function aplicarFiltroStatusCliente(valor){
+  filtroStatusCliente = valor;
+  document.querySelectorAll('.frc-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.frc===valor));
+  document.querySelectorAll('.frm-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.frm===valor));
+  filtrarTabelaClientesPorEstado();
+  renderMapaBrasil();
+  document.getElementById('painelClientesEstado').style.display = 'none';
+}
+
+function popularSelectClienteLancamento(){
+  const sel = document.getElementById('lancCliente');
+  if(!sel) return;
+  const atual = sel.value;
+  const ordenados = [...clientes].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR'));
+  sel.innerHTML = '<option value="">Nenhum</option>' + ordenados.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  if(ordenados.some(c=>c.id===atual)) sel.value = atual;
+}
+
+function renderClientes(){
+  popularSelectClienteLancamento();
+  renderMapaBrasil();
+  const tbody = document.getElementById('listaClientes');
+  const vazio = document.getElementById('vazioClientes');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
+  if(clientes.length === 0){ vazio.style.display = 'block'; return; }
+  vazio.style.display = 'none';
+
+  const ordenados = [...clientes].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  ordenados.forEach(c=>{
+    const tr = document.createElement('tr');
+    tr.dataset.estado = (c.estado||'').trim().toUpperCase();
+    tr.dataset.ativo = c.ativo==='nao' ? 'nao' : 'sim';
+
+    if(editandoClienteId === c.id){
+      tr.classList.add('edit-row');
+      tr.innerHTML = `
+        <td data-label="Nome"><input type="text" class="ec-nome" value="${(c.nome||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="CNPJ/CPF"><input type="text" class="ec-cpf-cnpj" value="${(c.cpfCnpj||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="Telefone"><input type="text" class="ec-telefone" value="${(c.telefone||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="Cidade/UF" style="display:flex;gap:4px;">
+          <input type="text" class="ec-cidade" value="${(c.cidade||'').replace(/"/g,'&quot;')}" style="width:60%;">
+          <select class="ec-estado" style="width:40%;">
+            <option value="">UF</option>
+            ${['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>`<option ${c.estado===uf?'selected':''}>${uf}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="E-mail"><input type="email" class="ec-email" value="${(c.email||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="Contato Financeiro"><input type="text" class="ec-contato-financeiro" value="${(c.contatoFinanceiro||'').replace(/"/g,'&quot;')}"></td>
+        <td data-label="Status">
+          <select class="ec-ativo">
+            <option value="sim" ${(c.ativo!=='nao')?'selected':''}>Ativo</option>
+            <option value="nao" ${(c.ativo==='nao')?'selected':''}>Inativo</option>
+          </select>
+        </td>
+        <td data-label="Observação"><input type="text" class="ec-obs" value="${(c.obs||'').replace(/"/g,'&quot;')}"></td>
+        <td class="acoes">
+          <button type="button" class="icobtn salvar-edit-cliente" data-id="${c.id}" title="Salvar"><b>✓</b></button>
+          <button type="button" class="icobtn cancelar-edit-cliente" title="Cancelar">✕</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    tr.innerHTML = `
+      <td data-label="Nome">${c.nome}</td>
+      <td data-label="CNPJ/CPF">${c.cpfCnpj || '—'}</td>
+      <td data-label="Telefone">${c.telefone || '—'}</td>
+      <td data-label="Cidade/UF">${[c.cidade, c.estado].filter(Boolean).join('/') || '—'}</td>
+      <td data-label="E-mail">${c.email || '—'}</td>
+      <td data-label="Contato Financeiro">${c.contatoFinanceiro || '—'}</td>
+      <td data-label="Status"><span class="badge-status ${c.ativo==='nao'?'nao':'sim'}">${c.ativo==='nao'?'Inativo':'Ativo'}</span></td>
+      <td data-label="Observação" style="max-width:220px;white-space:normal;">${c.obs || '—'}</td>
+      <td class="acoes">
+        <button type="button" class="icobtn editar-cliente" data-id="${c.id}" title="Editar">✎</button>
+        <button type="button" class="icobtn excluir-cliente" data-id="${c.id}" title="Excluir">✕</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.editar-cliente').forEach(b=>{
+    b.onclick = ()=>{ editandoClienteId = b.dataset.id; renderClientes(); };
+  });
+
+  tbody.querySelectorAll('.cancelar-edit-cliente').forEach(b=>{
+    b.onclick = ()=>{ editandoClienteId = null; renderClientes(); };
+  });
+
+  tbody.querySelectorAll('.excluir-cliente').forEach(b=>{
+    b.onclick = async ()=>{
+      const c = clientes.find(c=>c.id===b.dataset.id);
+      clientes = clientes.filter(c=>c.id !== b.dataset.id);
+      await salvarClientes();
+      if(c) await enviarParaSheets(c,'excluir','cliente');
+      renderClientes();
+    };
+  });
+
+  tbody.querySelectorAll('.salvar-edit-cliente').forEach(b=>{
+    b.onclick = async ()=>{
+      const tr = b.closest('tr');
+      const c = clientes.find(c=>c.id===b.dataset.id);
+      if(!c) return;
+      const nome = tr.querySelector('.ec-nome').value.trim();
+      if(!nome) return;
+      c.nome = nome;
+      c.cpfCnpj = tr.querySelector('.ec-cpf-cnpj').value.trim();
+      c.telefone = tr.querySelector('.ec-telefone').value.trim();
+      c.cidade = tr.querySelector('.ec-cidade').value.trim();
+      c.estado = tr.querySelector('.ec-estado').value;
+      c.email = tr.querySelector('.ec-email').value.trim();
+      c.contatoFinanceiro = tr.querySelector('.ec-contato-financeiro').value.trim();
+      c.ativo = tr.querySelector('.ec-ativo').value;
+      c.obs = tr.querySelector('.ec-obs').value.trim();
+      editandoClienteId = null;
+      await salvarClientes();
+      await enviarParaSheets(c,'upsert','cliente');
+      renderClientes();
+    };
+  });
+  filtrarTabelaClientesPorEstado();
+}
+
+document.getElementById('frmCliente').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const nome = document.getElementById('clNome').value.trim();
+  if(!nome) return;
+  const novoCliente = {
+    id: Date.now().toString(),
+    nome,
+    cpfCnpj: document.getElementById('clCpfCnpj').value.trim(),
+    telefone: document.getElementById('clTelefone').value.trim(),
+    cidade: document.getElementById('clCidade').value.trim(),
+    estado: document.getElementById('clEstado').value,
+    email: document.getElementById('clEmail').value.trim(),
+    contatoFinanceiro: document.getElementById('clContatoFinanceiro').value.trim(),
+    ativo: document.getElementById('clAtivo').value,
+    obs: document.getElementById('clObs').value.trim()
+  };
+  clientes.push(novoCliente);
+  await salvarClientes();
+  await enviarParaSheets(novoCliente,'upsert','cliente');
+  renderClientes();
+  e.target.reset();
+});
+
+document.getElementById('data').valueAsDate = new Date();
+
+document.querySelectorAll('.fr-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.fr-btn').forEach(b=>b.classList.remove('ativo'));
+    btn.classList.add('ativo');
+    filtroRapido = btn.dataset.fr;
+    render();
+  });
+});
+
+document.querySelectorAll('.frc-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> aplicarFiltroStatusCliente(btn.dataset.frc));
+});
+
+document.querySelectorAll('.frm-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> aplicarFiltroStatusCliente(btn.dataset.frm));
+});
+
+carregar();
+</script>
+</body>
+</html>
