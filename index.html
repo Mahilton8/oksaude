@@ -232,6 +232,15 @@
       <div id="vazioResumo" class="empty" style="display:none;">Nenhum lançamento no período.</div>
     </div>
 
+    <div class="panel">
+      <h2>Detalhamento dos lançamentos <span id="dashDetalheContagem" style="font-weight:400;font-size:12px;color:#999;"></span></h2>
+      <table>
+        <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Cliente</th><th style="text-align:right">Valor</th><th>Status</th></tr></thead>
+        <tbody id="listaDashDetalhe"></tbody>
+      </table>
+      <div id="vazioDashDetalhe" class="empty" style="display:none;">Nenhum lançamento no período.</div>
+    </div>
+
     <div class="panel" style="display:none;">
       <h2>Sincronização com Google Sheets</h2>
       <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
@@ -866,6 +875,7 @@ function render(){
 
   atualizarGraficos(baseTotais);
   atualizarResumoMensal(baseTotais);
+  atualizarDetalheDashboard(baseTotais);
 
   if(document.getElementById('simMes')){
     popularSimMes();
@@ -920,6 +930,36 @@ function formatarVariacao(atual, anterior){
   const pct = ((atual - anterior) / Math.abs(anterior)) * 100;
   const sinal = pct > 0 ? '+' : '';
   return { texto: `${sinal}${pct.toFixed(1)}%`, cor: pct >= 0 ? 'var(--verde)' : 'var(--vermelho)' };
+}
+
+function atualizarDetalheDashboard(dados){
+  const tbody = document.getElementById('listaDashDetalhe');
+  const vazio = document.getElementById('vazioDashDetalhe');
+  const contagem = document.getElementById('dashDetalheContagem');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
+  const ordenados = [...dados].sort((a,b)=> new Date(b.data)-new Date(a.data));
+  contagem.textContent = `(${ordenados.length} lançamento${ordenados.length===1?'':'s'})`;
+
+  if(ordenados.length === 0){ vazio.style.display = 'block'; return; }
+  vazio.style.display = 'none';
+
+  ordenados.forEach(r=>{
+    const dataFmt = new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR');
+    const s = statusLancamento(r);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="Data">${dataFmt}</td>
+      <td data-label="Descrição">${r.desc}</td>
+      <td data-label="Tipo"><span class="tag ${r.tipo}">${r.tipo==='receita'?'Receita':'Despesa'}</span></td>
+      <td data-label="Categoria"><span class="tag categoria">${r.categoria||'—'}</span></td>
+      <td data-label="Cliente">${nomeClientePorId(r.clienteId) || '—'}</td>
+      <td data-label="Valor" style="text-align:right;color:${r.tipo==='receita'?'var(--verde)':'var(--vermelho)'};">${fmt(r.valor)}</td>
+      <td data-label="Status"><span class="status-btn ${s}" style="cursor:default;">${labelStatusLancamento(r)}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 function atualizarResumoMensal(dados){
