@@ -97,6 +97,7 @@
   .status-btn{border:none;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;}
   .status-btn.pago{background:#e6f6ee;color:var(--verde);}
   .status-btn.pendente{background:#fdf1de;color:var(--amarelo-esc);}
+  .status-btn.atrasado{background:#fbe2df;color:var(--vermelho);font-weight:700;}
   tr.pago td{opacity:.55;}
   .edit-row input,.edit-row select{padding:5px;font-size:12px;}
   .icobtn{background:none;border:1px solid #ddd;color:#666;cursor:pointer;font-size:13px;padding:6px 10px;border-radius:6px;margin-left:4px;}
@@ -180,6 +181,7 @@
         <option value="todos">Todos os status</option>
         <option value="pago">Pago</option>
         <option value="pendente">Pendente</option>
+        <option value="atrasado">Atrasado</option>
       </select>
       <select id="filtroCategoria">
         <option value="todos">Todas as categorias</option>
@@ -297,7 +299,11 @@
         <button type="button" class="fr-btn" data-fr="despesa">Despesas</button>
       </div>
       <div class="filtros" style="margin-top:0;margin-bottom:14px;">
-        <span style="font-size:12px;color:#999;align-self:center;">Período:</span>
+        <span style="font-size:12px;color:#999;align-self:center;">Mês:</span>
+        <select id="lancSelecionarMes">
+          <option value="">Mês corrente</option>
+        </select>
+        <span style="font-size:12px;color:#999;align-self:center;">ou período:</span>
         <input type="date" id="lancDataIni" style="width:auto;">
         <span style="font-size:12px;color:#999;align-self:center;">até</span>
         <input type="date" id="lancDataFim" style="width:auto;">
@@ -522,6 +528,16 @@ document.getElementById('categoria').addEventListener('change', async (e)=>{
 });
 
 function fmt(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+
+function statusLancamento(r){
+  if(r.pago) return 'pago';
+  const hoje = new Date().toISOString().slice(0,10);
+  return r.data < hoje ? 'atrasado' : 'pendente';
+}
+function labelStatusLancamento(r){
+  const s = statusLancamento(r);
+  return s === 'pago' ? 'Pago' : (s === 'atrasado' ? 'Atrasado' : 'Pendente');
+}
 function nomeClientePorId(id){
   if(!id) return '';
   const c = clientes.find(c=>c.id===id);
@@ -666,17 +682,30 @@ function render(){
 
   atualizarOpcoesMes(mes);
   atualizarOpcoesCategoria(categoria);
+  atualizarOpcoesLancMes();
 
-  // período de busca da aba Lançamentos — só é aplicado ao confirmar no botão OK; sem confirmação, usa o mês corrente
-  const lancDataIni = periodoLancConfirmado ? periodoLancConfirmado.ini : primeiroDiaMesAtual();
-  const lancDataFim = periodoLancConfirmado ? periodoLancConfirmado.fim : ultimoDiaMesAtual();
+  // período de busca da aba Lançamentos — prioridade: mês selecionado > período confirmado (OK) > mês corrente
+  const mesSelecionadoLanc = document.getElementById('lancSelecionarMes').value;
+  let lancDataIni, lancDataFim;
+  if(mesSelecionadoLanc){
+    const [anoSel, mesSel] = mesSelecionadoLanc.split('-');
+    const ultimoDia = new Date(parseInt(anoSel,10), parseInt(mesSel,10), 0).getDate();
+    lancDataIni = `${anoSel}-${mesSel}-01`;
+    lancDataFim = `${anoSel}-${mesSel}-${String(ultimoDia).padStart(2,'0')}`;
+  } else if(periodoLancConfirmado){
+    lancDataIni = periodoLancConfirmado.ini;
+    lancDataFim = periodoLancConfirmado.fim;
+  } else {
+    lancDataIni = primeiroDiaMesAtual();
+    lancDataFim = ultimoDiaMesAtual();
+  }
 
   const ordenados = [...registros].sort((a,b)=> new Date(a.data)-new Date(b.data));
   let filtrados = filtro==='todos' ? ordenados : ordenados.filter(r=>r.tipo===filtro);
   if(filtroRapido !== 'todos'){ filtrados = filtrados.filter(r=> r.tipo === filtroRapido); }
   filtrados = filtrados.filter(r=> r.data >= lancDataIni && r.data <= lancDataFim);
   if(mes !== 'todos'){ filtrados = filtrados.filter(r=> r.data.slice(0,7) === mes); }
-  if(status !== 'todos'){ filtrados = filtrados.filter(r=> (status==='pago') === !!r.pago); }
+  if(status !== 'todos'){ filtrados = filtrados.filter(r=> statusLancamento(r) === status); }
   if(categoria !== 'todos'){ filtrados = filtrados.filter(r=> r.categoria === categoria); }
   if(dataIni){ filtrados = filtrados.filter(r=> r.data >= dataIni); }
   if(dataFim){ filtrados = filtrados.filter(r=> r.data <= dataFim); }
@@ -728,7 +757,7 @@ function render(){
       <td data-label="Categoria"><span class="tag categoria">${r.categoria||'—'}</span></td>
       <td data-label="Cliente">${nomeClientePorId(r.clienteId) || '—'}</td>
       <td data-label="Valor" style="text-align:right">${fmt(r.valor)}</td>
-      <td data-label="Status"><button type="button" class="status-btn ${r.pago?'pago':'pendente'}" data-id="${r.id}">${r.pago?'Pago':'Pendente'}</button></td>
+      <td data-label="Status"><button type="button" class="status-btn ${statusLancamento(r)}" data-id="${r.id}">${labelStatusLancamento(r)}</button></td>
       <td class="acoes">
         <button type="button" class="icobtn status-toggle-opt" data-id="${r.id}" title="${r.pago?'Marcar como pendente':'Marcar como pago'}">${r.pago?'↩ Desfazer pago':'✔ Marcar pago'}</button>
         <button type="button" class="icobtn editar-opt" data-id="${r.id}" title="Editar">✎</button>
@@ -820,7 +849,7 @@ function render(){
   } else {
     baseTotais = registros.filter(r=> r.data >= primeiroDiaMesAtual() && r.data <= ultimoDiaMesAtual());
   }
-  if(status !== 'todos'){ baseTotais = baseTotais.filter(r=> (status==='pago') === !!r.pago); }
+  if(status !== 'todos'){ baseTotais = baseTotais.filter(r=> statusLancamento(r) === status); }
   if(categoria !== 'todos'){ baseTotais = baseTotais.filter(r=> r.categoria === categoria); }
   if(dataIni){ baseTotais = baseTotais.filter(r=> r.data >= dataIni); }
   if(dataFim){ baseTotais = baseTotais.filter(r=> r.data <= dataFim); }
@@ -1198,6 +1227,22 @@ function atualizarOpcoesMes(selecionado){
   sel.value = chaves.includes(selecionado) ? selecionado : 'todos';
 }
 
+function atualizarOpcoesLancMes(){
+  const sel = document.getElementById('lancSelecionarMes');
+  const chaves = [...new Set(registros.map(r=>r.data.slice(0,7)))].sort().reverse();
+  const atual = sel.value;
+  const chavesAtuais = [...sel.options].map(o=>o.value).join(',');
+  const chavesNovas = ['', ...chaves].join(',');
+  if(chavesAtuais === chavesNovas) return;
+
+  sel.innerHTML = '<option value="">Mês corrente</option>' + chaves.map(c=>{
+    const [ano,m] = c.split('-');
+    const label = `${nomesMes[parseInt(m,10)-1]} de ${ano}`;
+    return `<option value="${c}">${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+  }).join('');
+  sel.value = chaves.includes(atual) ? atual : '';
+}
+
 function atualizarOpcoesCategoria(selecionado){
   const sel = document.getElementById('filtroCategoria');
   const chaves = [...new Set(registros.map(r=>r.categoria).filter(Boolean))].sort();
@@ -1229,9 +1274,17 @@ document.getElementById('verHistoricoCompleto').addEventListener('click', ()=>{
   render();
 });
 
+document.getElementById('lancSelecionarMes').addEventListener('change', ()=>{
+  document.getElementById('lancDataIni').value = '';
+  document.getElementById('lancDataFim').value = '';
+  periodoLancConfirmado = null;
+  render();
+});
+
 document.getElementById('okPeriodoLanc').addEventListener('click', ()=>{
   const ini = document.getElementById('lancDataIni').value;
   const fim = document.getElementById('lancDataFim').value;
+  document.getElementById('lancSelecionarMes').value = '';
   if(!ini && !fim){
     periodoLancConfirmado = null;
   } else {
@@ -1245,6 +1298,7 @@ document.getElementById('okPeriodoLanc').addEventListener('click', ()=>{
 document.getElementById('limparPeriodoLanc').addEventListener('click', ()=>{
   document.getElementById('lancDataIni').value = '';
   document.getElementById('lancDataFim').value = '';
+  document.getElementById('lancSelecionarMes').value = '';
   periodoLancConfirmado = null;
   render();
 });
