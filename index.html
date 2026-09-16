@@ -83,6 +83,9 @@
   .frm-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
   .frm-btn:hover{background:#eaeaea;}
   .frm-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
+  .frd-btn{background:#f2f2f0;border:1px solid #e5e5e5;color:#666;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+  .frd-btn:hover{background:#eaeaea;}
+  .frd-btn.ativo{background:var(--azul);border-color:var(--azul);color:#fff;}
   .cliente-estado-item{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:13px;gap:10px;}
   .cliente-estado-item:last-child{border-bottom:none;}
   .cliente-estado-item .nome{flex:1;color:var(--cinza);}
@@ -234,6 +237,15 @@
 
     <div class="panel">
       <h2>Detalhamento dos lançamentos <span id="dashDetalheContagem" style="font-weight:400;font-size:12px;color:#999;"></span></h2>
+      <div class="filtro-rapido">
+        <button type="button" class="frd-btn ativo" data-frd="todos">Todos</button>
+        <button type="button" class="frd-btn" data-frd="receita">Receitas</button>
+        <button type="button" class="frd-btn" data-frd="despesa">Despesas</button>
+        <span id="dashDetalheFiltroGrafico" style="display:none;font-size:12px;color:var(--azul);align-self:center;margin-left:8px;">
+          <span id="dashDetalheFiltroGraficoTexto"></span>
+          <button type="button" id="limparFiltroGraficoDash" class="icobtn" style="margin-left:6px;">✕ limpar</button>
+        </span>
+      </div>
       <table>
         <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Cliente</th><th style="text-align:right">Valor</th><th>Status</th></tr></thead>
         <tbody id="listaDashDetalhe"></tbody>
@@ -905,7 +917,21 @@ function atualizarGraficos(dados){
         { label: 'Despesas', data: despesasPorMes, backgroundColor: '#C0392B' }
       ]
     },
-    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } } }
+    options: {
+      responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } },
+      onClick: (evt, elementos)=>{
+        if(!elementos.length) return;
+        const el = elementos[0];
+        const mes = meses[el.index];
+        const tipo = el.datasetIndex === 0 ? 'receita' : 'despesa';
+        const [ano,mm] = mes.split('-');
+        const nomeMesFmt = `${nomesMes[parseInt(mm,10)-1]} de ${ano}`;
+        filtroGraficoDash = { tipo, mes, categoria:null, label: `${tipo==='receita'?'Receitas':'Despesas'} de ${nomeMesFmt}` };
+        atualizarDetalheDashboard(dados);
+        document.getElementById('listaDashDetalhe').closest('.panel').scrollIntoView({behavior:'smooth', block:'start'});
+      },
+      onHover: (evt, elementos)=>{ evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; }
+    }
   });
 
   // Despesas por categoria (pizza)
@@ -917,7 +943,18 @@ function atualizarGraficos(dados){
   chartPizzaDespesa = new Chart(document.getElementById('chartPizzaDespesa'), {
     type: 'pie',
     data: { labels: catsDespesa, datasets: [{ data: valoresDespesa, backgroundColor: CORES }] },
-    options: { responsive:true, maintainAspectRatio:false }
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      onClick: (evt, elementos)=>{
+        if(!elementos.length) return;
+        const idx = elementos[0].index;
+        const cat = catsDespesa[idx];
+        filtroGraficoDash = { tipo:'despesa', mes:null, categoria: cat, label: `Despesas de "${cat}"` };
+        atualizarDetalheDashboard(dados);
+        document.getElementById('listaDashDetalhe').closest('.panel').scrollIntoView({behavior:'smooth', block:'start'});
+      },
+      onHover: (evt, elementos)=>{ evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; }
+    }
   });
 
 }
@@ -932,6 +969,9 @@ function formatarVariacao(atual, anterior){
   return { texto: `${sinal}${pct.toFixed(1)}%`, cor: pct >= 0 ? 'var(--verde)' : 'var(--vermelho)' };
 }
 
+let filtroTipoDetalheDash = 'todos';
+let filtroGraficoDash = null; // { tipo, mes, categoria, label }
+
 function atualizarDetalheDashboard(dados){
   const tbody = document.getElementById('listaDashDetalhe');
   const vazio = document.getElementById('vazioDashDetalhe');
@@ -939,7 +979,24 @@ function atualizarDetalheDashboard(dados){
   if(!tbody) return;
   tbody.innerHTML = '';
 
-  const ordenados = [...dados].sort((a,b)=> new Date(b.data)-new Date(a.data));
+  let filtrados = [...dados];
+  if(filtroTipoDetalheDash !== 'todos'){ filtrados = filtrados.filter(r=>r.tipo===filtroTipoDetalheDash); }
+  if(filtroGraficoDash){
+    if(filtroGraficoDash.tipo){ filtrados = filtrados.filter(r=>r.tipo===filtroGraficoDash.tipo); }
+    if(filtroGraficoDash.mes){ filtrados = filtrados.filter(r=>r.data.slice(0,7)===filtroGraficoDash.mes); }
+    if(filtroGraficoDash.categoria){ filtrados = filtrados.filter(r=>r.categoria===filtroGraficoDash.categoria); }
+  }
+
+  const spanFiltro = document.getElementById('dashDetalheFiltroGrafico');
+  const spanTexto = document.getElementById('dashDetalheFiltroGraficoTexto');
+  if(filtroGraficoDash){
+    spanFiltro.style.display = 'inline-flex';
+    spanTexto.textContent = `Filtrado pelo gráfico: ${filtroGraficoDash.label}`;
+  } else {
+    spanFiltro.style.display = 'none';
+  }
+
+  const ordenados = filtrados.sort((a,b)=> new Date(b.data)-new Date(a.data));
   contagem.textContent = `(${ordenados.length} lançamento${ordenados.length===1?'':'s'})`;
 
   if(ordenados.length === 0){ vazio.style.display = 'block'; return; }
@@ -1768,6 +1825,20 @@ document.getElementById('btnReimportarClientes').addEventListener('click', async
   }
 
   btn.disabled = false;
+});
+
+document.querySelectorAll('.frd-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.frd-btn').forEach(b=>b.classList.remove('ativo'));
+    btn.classList.add('ativo');
+    filtroTipoDetalheDash = btn.dataset.frd;
+    render();
+  });
+});
+
+document.getElementById('limparFiltroGraficoDash').addEventListener('click', ()=>{
+  filtroGraficoDash = null;
+  render();
 });
 
 carregar();
